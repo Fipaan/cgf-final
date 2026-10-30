@@ -13,6 +13,7 @@
 #include "basic.hpp"
 #include "math3d.hpp"
 #include "ft.hpp"
+#include "alchemy_ui.hpp"
 
 struct material_t {
     color_t ambient, diffuse, specular;
@@ -37,6 +38,7 @@ struct app_t {
     ft::ft_lib_t  ft_lib;
     ft::ft_face_t ft_face;
     gl::shader_t  text_shader;
+    alchemy::ui_t alchemy_ui;
 
     mesh_t       mesh;
     mesh_gpu_t   gpu;
@@ -246,6 +248,8 @@ struct app_t {
             test_text_size.y + margin.y
         );
         ctx.draw_text(ft_face, test_text, test_text_pos, text_size);
+
+        alchemy_ui.draw(ctx, ft_face, text_shader);
 
         ctx.end_loop();
     }
