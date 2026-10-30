@@ -106,3 +106,7 @@ elseif(EMSCRIPTEN)
         "-sUSE_FREETYPE=1"
     )
 endif()
+
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_libraries(${PROJECT_NAME} PRIVATE stdc++exp)
+endif()
