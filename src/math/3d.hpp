@@ -21,6 +21,8 @@ struct vec3_t {
     template<typename K> constexpr auto operator-(const vec3_t<K>& rhs) const;
     template<typename K> constexpr auto operator*(const vec3_t<K>& rhs) const;
     template<typename K> constexpr auto operator/(const vec3_t<K>& rhs) const;
+    template<typename K> constexpr auto operator==(const vec3_t<K>& rhs) const;
+    template<typename K> constexpr auto operator!=(const vec3_t<K>& rhs) const;
 
     template<typename K> constexpr vec3_t<T>& operator=(const vec3_t<K>& rhs);
     template<typename K> constexpr vec3_t<T>& operator+=(const vec3_t<K>& rhs);
@@ -152,6 +154,20 @@ constexpr auto vec3_t<T>::operator/(const vec3_t<K>& rhs) const
 {
     using R = std::common_type_t<T, K>;
     return vec3_t<R>(x / rhs.x, y / rhs.y, z / rhs.z);
+}
+
+template<typename T>
+template<typename K>
+constexpr auto vec3_t<T>::operator==(const vec3_t<K>& rhs) const
+{
+    return x == rhs.x && y == rhs.y && z == rhs.z;
+}
+
+template<typename T>
+template<typename K>
+constexpr auto vec3_t<T>::operator!=(const vec3_t<K>& rhs) const
+{
+    return x != rhs.x || y != rhs.y || z != rhs.z;
 }
 
 template<typename T>
@@ -348,8 +364,10 @@ constexpr mat4_t mat4_t::operator*(const mat4_t& rhs) const
     for (int col = 0; col < 4; ++col) {
         for (int row = 0; row < 4; ++row) {
             GLfloat sum = 0;
-            for (int k = 0; k < 4; ++k) sum += m[k*4 + row] * rhs.m[col*4 + k];
-            c.m[col*4 + row] = sum;
+            for (int k = 0; k < 4; ++k) {
+                sum += at(row,k) * rhs.at(k,col);
+            }
+            c.at(row,col) = sum;
         }
     }
     return c;

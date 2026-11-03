@@ -1,8 +1,8 @@
 #pragma once
 
-#include "gl_first.hpp"
-#include "gl_shader.hpp"
-#include "math.hpp"
+#include <gl/first.hpp>
+#include <gl/shader.hpp>
+#include <math/2d.hpp>
 
 namespace gl {
     struct rect_t {

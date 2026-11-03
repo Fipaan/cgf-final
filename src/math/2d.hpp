@@ -21,6 +21,8 @@ struct vec2_t {
     template<typename K> constexpr auto operator-(const vec2_t<K>& rhs) const;
     template<typename K> constexpr auto operator*(const vec2_t<K>& rhs) const;
     template<typename K> constexpr auto operator/(const vec2_t<K>& rhs) const;
+    template<typename K> constexpr bool operator==(const vec2_t<K>& rhs) const;
+    template<typename K> constexpr bool operator!=(const vec2_t<K>& rhs) const;
 
     template<typename K> constexpr vec2_t<T>& operator=(const vec2_t<K>& rhs);
     template<typename K> constexpr vec2_t<T>& operator+=(const vec2_t<K>& rhs);
@@ -159,6 +161,19 @@ constexpr auto vec2_t<T>::operator/(const vec2_t<K>& rhs) const
 {
     using R = std::common_type_t<T, K>;
     return vec2_t<R>(x / rhs.x, y / rhs.y);
+}
+
+template<typename T>
+template<typename K>
+constexpr bool vec2_t<T>::operator==(const vec2_t<K>& rhs) const
+{
+    return x == rhs.x && y == rhs.y;
+}
+template<typename T>
+template<typename K>
+constexpr bool vec2_t<T>::operator!=(const vec2_t<K>& rhs) const
+{
+    return x != rhs.x || y != rhs.y;
 }
 
 template<typename T>

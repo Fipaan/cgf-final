@@ -1,11 +1,11 @@
 #pragma once
 
-#include "gl_first.hpp"
-#include "gl_const.hpp"
-#include "gl_shader.hpp"
-#include "gl_2d.hpp"
-#include "math.hpp"
-#include "ft.hpp"
+#include <gl/first.hpp>
+#include <gl/const.hpp>
+#include <gl/shader.hpp>
+#include <gl/2d.hpp>
+#include <math/2d.hpp>
+#include <ft.hpp>
 
 namespace gl {
     struct glfw_ctx_t {
@@ -34,7 +34,8 @@ namespace gl {
         };
 
         GLFWwindow *window;
-        vec2_t<int> screen_size_prev, screen_size, sscreen_size;
+        // NOTE: wscreen_size is size in window coordinates
+        vec2_t<int> screen_size_prev, screen_size, wscreen_size;
         vec2_t<GLfloat> DPI;
 
         GLfloat    target_fps, actual_fps;
@@ -68,9 +69,16 @@ namespace gl {
 
         kb_key_state_t get_key(kb_key_t key);
 
+        void resize(int width, int height);
         void force_close(glfw_bool_t close = glfw_bool::TRUE);
 
         void clear_color(color_t color);
         void clear_color(uint32_t rgba);
+
+        // calls ft::ft_face_t::set_pixel_sizes
+        bool set_pixel_sizes(ft::ft_face_t& ft_face, vec2_t<FT_UInt> pixel_size);
+
+        // used internally, not really meant to use outside
+        void _resize_cache();
     };
 }

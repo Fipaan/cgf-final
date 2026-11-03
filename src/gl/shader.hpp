@@ -1,7 +1,7 @@
 #pragma once
 
-#include "gl_first.hpp"
-#include "gl_const.hpp"
+#include <gl/first.hpp>
+#include <gl/const.hpp>
 
 namespace gl {
 

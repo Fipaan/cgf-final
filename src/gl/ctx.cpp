@@ -1,6 +1,6 @@
-#include "gl_ctx.hpp"
+#include "ctx.hpp"
 
-#include "basic.hpp"
+#include <basic.hpp>
 #include <thread>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -21,8 +21,6 @@ gl::glfw_ctx_t::~glfw_ctx_t()
     }
 }
 
-static void glad_noop(const char *name, void *funcptr, int len_args, ...) {}
-
 bool gl::glfw_ctx_t::init()
 {
     if (!glfwInit()) {
@@ -34,8 +32,6 @@ bool gl::glfw_ctx_t::init()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
-
-    glad_set_post_callback(glad_noop);
 
     initialized = true;
 
@@ -65,6 +61,18 @@ bool gl::ctx_t::create_window(int width, int height, const char *title, GLFWmoni
         glfw_errlog("gladLoadGLLoader");
         return false;
     }
+    initialized = true;
+
+    // Platform may automatically scale window according to DPI
+    glfwGetWindowContentScale(window, &DPI.x, &DPI.y);
+    infofn("DPI: {:.2f}x{:.2f}", DPI.x, DPI.y);
+    resize(width, height);
+    // NOTE: hack on a first frame, because glfwGetWindowSize
+    //       may return cache value, e.g. on X11 it sends size
+    //       to X server (XResizeWindow), that later will retrieve
+    //       it using XGetWindowAttributes: https://github.com/glfw/glfw/blob/3.5.1/src/x11_window.c
+    glfwPollEvents();
+    _resize_cache();
 
     vao.gen_array();
     if (!vao.bind()) return false;
@@ -77,29 +85,31 @@ bool gl::ctx_t::create_window(int width, int height, const char *title, GLFWmoni
     vbo_xyuv.gen_buffer();
     if (!vbo_xyuv.add_vad(vad_t(3, vad_cpv_t::comp_4, 4, 0))) return false;
 
-    sscreen_size.x = width;
-    sscreen_size.y = height;
-    glfwGetFramebufferSize(window, &screen_size.x, &screen_size.y);
-    DPI = screen_size.cast<GLfloat>() / sscreen_size;
-    infofn("DPI: {:.2f}x{:.2f}", DPI.x, DPI.y);
-
-    // OpenGL automatically scales window according to DPI
-    sscreen_size /= DPI;
-    glfwSetWindowSize(window, sscreen_size.x, sscreen_size.y);
-    glfwGetFramebufferSize(window, &screen_size.x, &screen_size.y);
-    glViewport(0, 0, screen_size.x, screen_size.y);
-    infofn("Screen Size: {}x{}", sscreen_size.x, sscreen_size.y);
-    infofn("Window Size: {}x{}", screen_size.x, screen_size.y);
-
-    initialized = true;
-
     return true;
 }
 
 void gl::ctx_t::set_fps(GLfloat fps)
 {
-    target_fps       = fps;
-    frame_time       = duration(1.0 / target_fps);
+    target_fps = fps;
+    frame_time = duration(1.0 / target_fps);
+}
+
+void gl::ctx_t::resize(int width, int height)
+{
+    assert(initialized);
+    screen_size.x = width;
+    screen_size.y = height;
+    glfwSetWindowSize(window,
+        (int)std::round(width/DPI.x),
+        (int)std::round(height/DPI.y)
+    );
+}
+
+void gl::ctx_t::_resize_cache()
+{
+    assert(initialized);
+    glfwGetWindowSize(window, &wscreen_size.x, &wscreen_size.y);
+    glViewport(0, 0, screen_size.x, screen_size.y);
 }
 
 void gl::ctx_t::before_loop()
@@ -110,6 +120,7 @@ void gl::ctx_t::before_loop()
 
 void gl::ctx_t::start_loop()
 {
+    // emscripten maintains its own main loop
 #ifdef __EMSCRIPTEN__
     if (window_should_close()) {
         emscripten_cancel_main_loop();
@@ -125,10 +136,7 @@ bool gl::ctx_t::on_resize()
     screen_size_prev = screen_size;
     glfwGetFramebufferSize(window, &screen_size.x, &screen_size.y);
     bool resized = vec2::dst_sqr(screen_size_prev, screen_size) > 0.0;
-    if (resized) {
-        sscreen_size = screen_size / DPI;
-        glViewport(0, 0, screen_size.x, screen_size.y);
-    }
+    if (resized) _resize_cache();
     return resized;
 }
 
@@ -361,4 +369,9 @@ void gl::ctx_t::clear_color(color_t color)
 void gl::ctx_t::clear_color(uint32_t rgba)
 {
     clear_color(color_t::from_hex(rgba));
+}
+
+bool gl::ctx_t::set_pixel_sizes(ft::ft_face_t& ft_face, vec2_t<FT_UInt> pixel_size)
+{
+    return ft_face.set_pixel_sizes(pixel_size, DPI);
 }

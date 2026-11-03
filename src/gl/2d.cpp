@@ -1,4 +1,4 @@
-#include "gl_2d.hpp"
+#include "2d.hpp"
 
 gl::rect_t::rect_t(vec2_t<GLfloat> pos, vec2_t<GLfloat> size)
     : colors{
