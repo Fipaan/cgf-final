@@ -1,6 +1,7 @@
 #include "ctx.hpp"
 
 #include <basic.hpp>
+#include <algorithm>
 #include <thread>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -375,4 +376,49 @@ void gl::ctx_t::clear_color(uint32_t rgba)
 bool gl::ctx_t::set_pixel_sizes(ft::ft_face_t& ft_face, vec2_t<FT_UInt> pixel_size)
 {
     return ft_face.set_pixel_sizes(pixel_size, DPI);
+}
+
+vec2_t<GLfloat> gl::ctx_t::cursor_position() const
+{
+    double x = 0.0;
+    double y = 0.0;
+    int w = 1;
+    int h = 1;
+    glfwGetWindowSize(window, &w, &h);
+    glfwGetCursorPos(window, &x, &y);
+    return vec2_t<GLfloat>(
+        static_cast<GLfloat>(x * screen_size.x / std::max(w, 1)),
+        static_cast<GLfloat>(y * screen_size.y / std::max(h, 1))
+    );
+}
+
+bool gl::ctx_t::left_button_down() const
+{
+    return glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+}
+
+void gl::ctx_t::set_vsync(bool enabled)
+{
+    glfwSwapInterval(enabled ? 1 : 0);
+}
+
+void gl::ctx_t::begin_overlay()
+{
+    overlay_depth = glIsEnabled(GL_DEPTH_TEST);
+    overlay_cull = glIsEnabled(GL_CULL_FACE);
+    overlay_blend = glIsEnabled(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+void gl::ctx_t::end_overlay()
+{
+    if (overlay_depth) glEnable(GL_DEPTH_TEST);
+    else glDisable(GL_DEPTH_TEST);
+    if (overlay_cull) glEnable(GL_CULL_FACE);
+    else glDisable(GL_CULL_FACE);
+    if (overlay_blend) glEnable(GL_BLEND);
+    else glDisable(GL_BLEND);
 }

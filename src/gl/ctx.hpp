@@ -66,6 +66,7 @@ namespace gl {
         vec2_t<int> screen_size_prev, screen_size, wscreen_size;
         vec2_t<GLfloat> DPI;
 
+        GLboolean overlay_depth = GL_FALSE, overlay_cull = GL_FALSE, overlay_blend = GL_FALSE;
         GLfloat    target_fps, actual_fps;
         duration   frame_time;
         time_point _start_frame, _end_frame;
@@ -100,6 +101,11 @@ namespace gl {
 
         void resize(int width, int height);
         void force_close(glfw_bool_t close = glfw_bool::TRUE);
+        vec2_t<GLfloat> cursor_position() const;
+        bool left_button_down() const;
+        void set_vsync(bool enabled);
+        void begin_overlay();
+        void end_overlay();
 
         void clear_color(color_t color);
         void clear_color(uint32_t rgba);
