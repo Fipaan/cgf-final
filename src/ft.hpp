@@ -1,11 +1,16 @@
+/*
+ * ft.hpp -
+ *     Wrapper around Freetype2 (https://freetype.org/) library. Provides a way to work with fonts,
+ *     and text.
+ */
 #pragma once
 
 extern "C" {
     #include <ft2build.h>
     #include FT_FREETYPE_H
 }
-#include "gl_first.hpp"
-#include "math.hpp"
+#include <gl/first.hpp>
+#include <math/2d.hpp>
 
 namespace ft {
     void log_ft_error(FT_Error err, std::string type);

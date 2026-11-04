@@ -1,4 +1,4 @@
-#include "alchemy_ui.hpp"
+#include "alchemy.hpp"
 
 #include <algorithm>
 #include <array>
@@ -8,8 +8,8 @@
 #include <string_view>
 #include <utility>
 
-#include "gl_ctx.hpp"
-#include "ft.hpp"
+#include <gl/ctx.hpp>
+#include <ft.hpp>
 
 namespace alchemy {
 namespace {

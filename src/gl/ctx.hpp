@@ -1,12 +1,40 @@
+/*
+ * gl/ctx.hpp -
+ *     GL/GLFW context and custom library one. It provides a way to manipulate GL/GLFW from in
+ *     unified place.
+ */
 #pragma once
 
-#include "gl_first.hpp"
-#include "gl_const.hpp"
-#include "gl_shader.hpp"
-#include "gl_2d.hpp"
-#include "math.hpp"
-#include "ft.hpp"
+#include <gl/first.hpp>
+#include <gl/const.hpp>
+#include <gl/shader.hpp>
+#include <gl/2d.hpp>
+#include <math/2d.hpp>
+#include <ft.hpp>
 
+/* Usage:
+```cpp
+int main()
+{
+    gl::glfw_ctx_t glfw_ctx;
+    if (!glfw_ctx.init()) return 1;
+    gl::ctx_t ctx(glfw_ctx);
+    if (!ctx.create_window(800, 600, "Hello, OpenGL!")) return 1;
+
+    ctx.set_fps(60.0f);
+    ctx.before_loop();
+    while (!ctx.window_should_close()) {
+        ctx.start_loop();
+        if (ctx.on_resize()) {
+            // ... handle resizing ...
+        }
+        // ... main logic ...
+        ctx.end_loop();
+    }
+
+    return 0;
+}
+*/
 namespace gl {
     struct glfw_ctx_t {
         bool initialized;
@@ -34,7 +62,8 @@ namespace gl {
         };
 
         GLFWwindow *window;
-        vec2_t<int> screen_size_prev, screen_size, sscreen_size;
+        // NOTE: wscreen_size is size in window units
+        vec2_t<int> screen_size_prev, screen_size, wscreen_size;
         vec2_t<GLfloat> DPI;
 
         GLfloat    target_fps, actual_fps;
@@ -45,13 +74,14 @@ namespace gl {
 
         ctx_t(glfw_ctx_t& glfw_ctx);
         ~ctx_t();
-        bool create_window(int width, int height, const char *title, GLFWmonitor *monitor, GLFWwindow *share);
+        bool create_window(int width, int height, const char *title, GLFWmonitor *monitor = nullptr, GLFWwindow *share = nullptr);
  
         void set_fps(GLfloat fps);
         void before_loop();
 
         void start_loop();
         bool window_should_close(void);
+        // required for proper inner state, returns true if resize happened
         bool on_resize();
         void end_loop();
 
@@ -68,9 +98,16 @@ namespace gl {
 
         kb_key_state_t get_key(kb_key_t key);
 
+        void resize(int width, int height);
         void force_close(glfw_bool_t close = glfw_bool::TRUE);
 
         void clear_color(color_t color);
         void clear_color(uint32_t rgba);
+
+        // calls ft::ft_face_t::set_pixel_sizes
+        bool set_pixel_sizes(ft::ft_face_t& ft_face, vec2_t<FT_UInt> pixel_size);
+
+        // used internally, not really meant to use outside
+        void _resize_cache();
     };
 }

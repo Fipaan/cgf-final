@@ -7,15 +7,10 @@
 #include <string>
 #include <vector>
 
-#include "alchemy_recipes.hpp"
-
-namespace gl {
-class ctx_t;
-class shader_t;
-}
-namespace ft {
-class ft_face_t;
-}
+#include <gl/first.hpp>
+#include <gl/ctx.hpp>
+#include <gl/shader.hpp>
+#include <ui/alchemy_recipes.hpp>
 
 namespace alchemy {
 

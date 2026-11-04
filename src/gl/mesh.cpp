@@ -5,7 +5,7 @@
 #include <fstream>
 #include <sstream>
 
-#include "basic.hpp"
+#include <basic.hpp>
 
 bool mesh_t::load_smf(const char *path)
 {

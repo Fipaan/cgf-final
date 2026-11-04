@@ -8,12 +8,12 @@
 #include <cstdint>
 #include <map>
 
-#include "mesh.hpp"
-#include "gl_ctx.hpp"
-#include "basic.hpp"
-#include "math3d.hpp"
-#include "ft.hpp"
-#include "alchemy_ui.hpp"
+#include <gl/mesh.hpp>
+#include <gl/ctx.hpp>
+#include <basic.hpp>
+#include <math/3d.hpp>
+#include <ft.hpp>
+#include <ui/alchemy.hpp>
 
 struct material_t {
     color_t ambient, diffuse, specular;
@@ -34,11 +34,19 @@ enum class shading_t : int { normals = 0, gouraud = 1, phong = 2 };
 struct app_t {
     gl::glfw_ctx_t& glfw_ctx;
     gl::ctx_t&      ctx;
+    alchemy::ui_t   alchemy_ui;
 
     ft::ft_lib_t  ft_lib;
     ft::ft_face_t ft_face;
     gl::shader_t  text_shader;
-    alchemy::ui_t alchemy_ui;
+
+    FT_UInt       text_pixel_sizes;
+    FT_UInt       active_text_size;
+
+    bool update_font_cache()
+    {
+        return ctx.set_pixel_sizes(ft_face, vec2_t(text_pixel_sizes));
+    }
 
     mesh_t       mesh;
     mesh_gpu_t   gpu;
@@ -124,7 +132,8 @@ struct app_t {
         if (!ft_lib.init()) return false;
         FT_Long face_index = 0;
         if (!ft_face.init("./assets/fonts/iosevka-regular.ttf", face_index)) return false;
-        if (!ft_face.set_pixel_sizes((vec2_t(100)/ctx.DPI).cast<FT_UInt>())) return false;
+        active_text_size = text_pixel_sizes = 100;
+        if (!update_font_cache()) return false;
         if (!text_shader.from_files("./shaders/text.vert", "./shaders/text.frag")) return false;
 
         glEnable(GL_DEPTH_TEST);
@@ -175,7 +184,7 @@ struct app_t {
         shader.uniform(name, c.r, c.g, c.b, c.a);
     }
 
-    void frame()
+    bool frame()
     {
         ctx.start_loop();
         ctx.on_resize();
@@ -236,31 +245,39 @@ struct app_t {
         text_shader.uniform("color", 0.0f, 1.0f, 0.0f);
         text_shader.uniform("glyph", (int)0);
 
-        static float text_size = 100.0f;
-        if (held(gl::kb_key_t::z)) text_size -= 1.0f;
-        if (held(gl::kb_key_t::x)) text_size += 1.0f;
+        if (held(gl::kb_key_t::x) && active_text_size > 0.0f) active_text_size -= 1.0f;
+        if (held(gl::kb_key_t::c)) active_text_size += 1.0f;
 
-        std::string test_text = "Test\ntext";
-        vec2_t<FT_UInt> test_text_size = ft_face.measure_text(test_text, text_size);
+        if (active_text_size > 10.0f) {
+            float delta_scale = active_text_size / text_pixel_sizes - 1.0f;
+            // if text is 30% bigger than reference size
+            if (delta_scale > 0.3f) {
+                text_pixel_sizes = active_text_size;
+                if (!update_font_cache()) return false;
+            }
+        }
+
+        std::string test_text = std::format("Width: {}\nHeight: {}\n", ctx.screen_size.x, ctx.screen_size.y);
+        vec2_t<FT_UInt> test_text_size = ft_face.measure_text(test_text, active_text_size);
         vec2_t<GLfloat> margin(100.0f);
         vec2_t<GLfloat> test_text_pos = vec2_t<GLfloat>(
             ctx.screen_size.x - (test_text_size.x + margin.x),
             test_text_size.y + margin.y
         );
-        ctx.draw_text(ft_face, test_text, test_text_pos, text_size);
+        ctx.draw_text(ft_face, test_text, test_text_pos, active_text_size);
 
         alchemy_ui.draw(ctx, ft_face, text_shader);
 
         ctx.end_loop();
+
+        return true;
     }
 };
 
 int main(int argc, char **argv)
 {
-    if (argc < 2) {
-        errorfn("usage: {} model.smf", argv[0]);
-        return 1;
-    }
+    const char *model_path = "./assets/models/teapot.smf";
+    if (argc >= 2) model_path = argv[1];
 
     gl::gl_first_state_verify();
 
@@ -273,13 +290,15 @@ int main(int argc, char **argv)
 
     // declared after ctx: GL objects die before the GLFW context
     app_t app(glfw_ctx, ctx);
-    if (!app.init(argv[1])) return 1;
+    if (!app.init(model_path)) return 1;
 
     infofn("1/2/3 shading | M material | O/P projection | Z axis | Space auto-orbit");
     infofn("camera: arrows + -/= | light 0: A/D W/S Q/E");
 
     ctx.before_loop();
-    while (!ctx.window_should_close()) app.frame();
+    while (!ctx.window_should_close()) {
+        if (!app.frame()) return 1;
+    }
 
     return 0;
 }

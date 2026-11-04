@@ -1,3 +1,7 @@
+/*
+ * basic.hpp -
+ *     Logging and basic functionality, that is lacking from standard library.
+ */
 #pragma once
 
 #include <print>
@@ -11,6 +15,9 @@ constexpr void infofn(std::format_string<Args...> fmt, Args&&... args);
 
 template<typename... Args>
 constexpr void errorfn(std::format_string<Args...> fmt, Args&&... args);
+
+template<typename... Args>
+constexpr void debugfn(std::format_string<Args...> fmt, Args&&... args);
 
 bool read_entire_file(std::string& file, const char *filename);
 
@@ -29,3 +36,19 @@ constexpr void errorfn(std::format_string<Args...> fmt, Args&&... args)
     std::fputs("[ERROR] ", stderr);
     std::println(stderr, fmt, std::forward<Args>(args)...);
 }
+
+#ifndef NDEBUG
+template<typename... Args>
+constexpr void debugfn(std::format_string<Args...> fmt, Args&&... args)
+{
+    std::fputs("[DEBUG] ", stderr);
+    std::println(stderr, fmt, std::forward<Args>(args)...);
+}
+#else
+template<typename... Args>
+constexpr void debugfn(std::format_string<Args...> fmt, Args&&... args)
+{
+    (void)(fmt);
+    (void)(args);
+}
+#endif // DEBUG
