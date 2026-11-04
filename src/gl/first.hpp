@@ -1,13 +1,19 @@
+/*
+ * gl/first.hpp -
+ *     Main header for GL module, required to be included first (before any other header that uses OpenGL).
+ *     Provides basic GL/GLFW functionality
+ */
 #pragma once
 
 extern "C" {
     #include <glad/glad.h>
     #include <GLFW/glfw3.h>
 
-    #if __EMSCRIPTEN__
-    #include <emscripten.h>
-    #include <emscripten/html5.h>
-    #endif // __EMSCRIPTEN__
+    // NOTE: un-comment once emscripten become a target
+// #if __EMSCRIPTEN__
+//     #include <emscripten.h>
+//     #include <emscripten/html5.h>
+// #endif // __EMSCRIPTEN__
 }
 #include <string_view>
 #include <chrono>

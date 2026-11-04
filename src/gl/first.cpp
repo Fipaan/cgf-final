@@ -1,4 +1,4 @@
-#include "gl_first.hpp"
+#include "first.hpp"
 
 #include <cmath>
 #include <numbers>
@@ -6,7 +6,8 @@
 #include <algorithm>
 #include <vector>
 #include <span>
-#include "basic.hpp"
+
+#include <basic.hpp>
 
 #ifdef __set_any_gl_error
     #warn "__set_any_gl_error intrinsic already defined! ABORT_ON_ANY_GL_ERROR may result in incorrect behavior or not compile."

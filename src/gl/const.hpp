@@ -1,3 +1,8 @@
+/*
+ * gl/const.hpp -
+ *     Mainly maps OpenGL/GLFW macros into more usable macros. Also defines other macros that trims
+ *     name span (e.g. glUniform* family functions).
+ */
 #pragma once
 
 extern "C" {
@@ -218,6 +223,7 @@ namespace gl {
         dynamic_copy = GL_DYNAMIC_COPY,
     };
 
+    // Vector Type
     enum v_type_t : std::uint8_t {
         v1 = 1,
         v2 = 2,
@@ -225,6 +231,7 @@ namespace gl {
         v4 = 4,
     };
 
+    // Matrix Type
     enum m_type_t : std::uint8_t {
         m2x2,
         m2x3,

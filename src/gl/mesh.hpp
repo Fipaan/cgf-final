@@ -1,3 +1,7 @@
+/*
+ * gl/mesh.hpp -
+ *     Mesh storing and manipulating.
+ */
 #pragma once
 
 #include <numbers>
@@ -7,10 +11,10 @@
 #include <vector>
 #include <cstdint>
 
-#include "gl_first.hpp"
-#include "gl_const.hpp"
-#include "gl_shader.hpp"
-#include "math3d.hpp"
+#include <gl/first.hpp>
+#include <gl/const.hpp>
+#include <gl/shader.hpp>
+#include <math/3d.hpp>
 
 struct mesh_t {
     std::vector<vec3_t<GLfloat>> vertices;

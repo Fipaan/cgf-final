@@ -1,6 +1,6 @@
-#include "gl_shader.hpp"
+#include "shader.hpp"
 
-#include "basic.hpp"
+#include <basic.hpp>
 
 bool gl::verify_shader(std::string_view type, GLuint shader)
 {

@@ -1,4 +1,4 @@
-#include "gl_2d.hpp"
+#include "2d.hpp"
 
 gl::rect_t::rect_t(vec2_t<GLfloat> pos, vec2_t<GLfloat> size)
     : colors{
@@ -122,9 +122,9 @@ gl::triangle_t::triangle_t()
 void gl::triangle_t::update_cache()
 {
     auto& [a, b, c] = vertices;
-    sides[0] = std::sqrt(vec2::dst_sqr(a, b));
-    sides[1] = std::sqrt(vec2::dst_sqr(b, c));
-    sides[2] = std::sqrt(vec2::dst_sqr(c, a));
+    sides[0] = vec2::dst(a, b);
+    sides[1] = vec2::dst(b, c);
+    sides[2] = vec2::dst(c, a);
 
     const float area_twice = std::abs(
         (b.x - a.x) * (c.y - a.y) -

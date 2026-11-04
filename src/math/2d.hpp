@@ -1,3 +1,7 @@
+/*
+ * math/2d.hpp -
+ *     Math related to 2D objects, such as vectors.
+ */
 #pragma once
 
 extern "C" {
@@ -21,6 +25,8 @@ struct vec2_t {
     template<typename K> constexpr auto operator-(const vec2_t<K>& rhs) const;
     template<typename K> constexpr auto operator*(const vec2_t<K>& rhs) const;
     template<typename K> constexpr auto operator/(const vec2_t<K>& rhs) const;
+    template<typename K> constexpr bool operator==(const vec2_t<K>& rhs) const;
+    template<typename K> constexpr bool operator!=(const vec2_t<K>& rhs) const;
 
     template<typename K> constexpr vec2_t<T>& operator=(const vec2_t<K>& rhs);
     template<typename K> constexpr vec2_t<T>& operator+=(const vec2_t<K>& rhs);
@@ -48,6 +54,9 @@ struct vec2_t {
 namespace vec2 {
     template<typename T, typename K>
     constexpr auto dst_sqr(const vec2_t<T>& a, const vec2_t<K>& b);
+
+    template<typename T, typename K>
+    constexpr auto dst(const vec2_t<T>& a, const vec2_t<K>& b);
 
     template<typename T, typename K>
     constexpr auto compute_angle(const vec2_t<T>& v1, const vec2_t<K>& v2);
@@ -163,6 +172,19 @@ constexpr auto vec2_t<T>::operator/(const vec2_t<K>& rhs) const
 
 template<typename T>
 template<typename K>
+constexpr bool vec2_t<T>::operator==(const vec2_t<K>& rhs) const
+{
+    return x == rhs.x && y == rhs.y;
+}
+template<typename T>
+template<typename K>
+constexpr bool vec2_t<T>::operator!=(const vec2_t<K>& rhs) const
+{
+    return x != rhs.x || y != rhs.y;
+}
+
+template<typename T>
+template<typename K>
 constexpr vec2_t<T>& vec2_t<T>::operator=(const vec2_t<K>& rhs)
 {
     x = rhs.x;
@@ -274,6 +296,12 @@ constexpr auto vec2::dst_sqr(const vec2_t<T>& a, const vec2_t<K>& b)
     auto dy = a.y - b.y;
 
     return dx * dx + dy * dy;
+}
+
+template<typename T, typename K>
+constexpr auto vec2::dst(const vec2_t<T>& a, const vec2_t<K>& b)
+{
+    return std::sqrt(dst_sqr(a, b));
 }
 
 template<typename T, typename K>

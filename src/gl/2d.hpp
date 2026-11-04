@@ -1,8 +1,12 @@
+/*
+ * gl/2d.hpp -
+ *     It handles 2D scene related objects, such as triangles, rectangles, and etc.
+ */
 #pragma once
 
-#include "gl_first.hpp"
-#include "gl_shader.hpp"
-#include "math.hpp"
+#include <gl/first.hpp>
+#include <gl/shader.hpp>
+#include <math/2d.hpp>
 
 namespace gl {
     struct rect_t {
@@ -12,7 +16,7 @@ namespace gl {
         rect_t(vec2_t<GLfloat> pos, vec2_t<GLfloat> size);
         rect_t(GLfloat x, GLfloat y, GLfloat w, GLfloat h);
         rect_t();
-    
+
         void spread_pos(std::vector<GLfloat>& storage);
         void spread_color(std::vector<GLfloat>& storage, gl::vad_cpv_t cpv = gl::vad_cpv_t::comp_3);
     };
