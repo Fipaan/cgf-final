@@ -2,83 +2,66 @@
 
 #include <array>
 #include <cstddef>
-#include <functional>
-#include <optional>
 #include <string>
-#include <vector>
 
-#include <gl/first.hpp>
 #include <gl/ctx.hpp>
 #include <gl/shader.hpp>
 #include <ui/alchemy_recipes.hpp>
 
 namespace alchemy {
 
+enum class screen_t { main_menu, settings, game, pause, codex };
+
 class ui_t {
 public:
-    std::function<void(const recipe_t&)> on_apply;
-
     ui_t();
-    ~ui_t();
-    ui_t(const ui_t&) = delete;
-    ui_t& operator=(const ui_t&) = delete;
-
+    bool init();
+    void update(gl::ctx_t& ctx);
     void draw(gl::ctx_t& ctx, ft::ft_face_t& face, gl::shader_t& text_shader);
-    void clear_selection();
-    int selection_size() const;
-    const recipe_t* prepared_potion() const;
+    bool game_visible() const;
+    bool game_interactive() const;
+    screen_t screen() const;
+    void record_recipe(const recipe_t& recipe);
+    void set_status(std::string message);
 
 private:
     struct rect_t {
         float x, y, w, h;
     };
-    struct color_t {
-        float r, g, b, a;
-    };
-    struct label_t {
-        std::string value;
-        float x, y, size;
-        color_t color;
-    };
 
-    unsigned int quad_program_ = 0;
-    unsigned int quad_vao_ = 0;
-    unsigned int quad_vbo_ = 0;
-    bool graphics_ready_ = false;
+    gl::shader_t panel_shader_;
+    screen_t screen_ = screen_t::main_menu;
+    screen_t return_screen_ = screen_t::main_menu;
+    screen_t codex_return_ = screen_t::game;
+    bool vsync_ = true;
+    bool limit_120_ = false;
     bool previous_mouse_ = false;
-    bool book_open_ = false;
-    int book_page_ = 0;
-    float scale_ = 1.0f;
-    float viewport_width_ = 1200.0f;
-    float viewport_height_ = 900.0f;
-    float cursor_x_ = -1.0f;
-    float cursor_y_ = -1.0f;
+    bool previous_escape_ = false;
+    bool previous_tab_ = false;
     bool clicked_ = false;
-    std::array<int, 3> selection_ = {-1, -1, -1};
-    int selection_count_ = 0;
-    std::optional<std::size_t> ready_recipe_;
+    float mouse_x_ = -1.0f;
+    float mouse_y_ = -1.0f;
+    float width_ = 1200.0f;
+    float height_ = 900.0f;
+    float scale_ = 1.0f;
+    int codex_page_ = 0;
     std::array<bool, recipes.size()> discovered_ = {};
-    std::string message_ = "Choose 1-3 essences to begin.";
-    color_t message_color_ = {0.83f, 0.78f, 0.66f, 1.0f};
-    std::vector<float> vertices_;
-    std::vector<label_t> labels_;
+    std::string status_ = "Find ingredients and use the cauldron to brew potions.";
 
-    void initialize_graphics();
-    void read_mouse();
-    bool contains(rect_t rect) const;
-    void rect(rect_t rect, color_t color);
-    void line(float x, float y, float w, color_t color);
-    void text(std::string value, float x, float y, float size, color_t color);
-    bool button(rect_t area, std::string label, color_t color, bool enabled = true);
-    void layout();
-    void draw_book(float x);
-    void add_ingredient(int value);
-    void brew();
-    void apply_potion();
+    void fill(gl::ctx_t& ctx, rect_t r, color_t color);
+    void label(gl::ctx_t& ctx, ft::ft_face_t& face, gl::shader_t& text_shader,
+               const std::string& value, float x, float y, float size, color_t color);
+    bool button(gl::ctx_t& ctx, ft::ft_face_t& face, gl::shader_t& text_shader,
+                rect_t r, const std::string& value, color_t color);
+    bool hovered(rect_t r) const;
+    bool pressed(gl::ctx_t& ctx, gl::kb_key_t key, bool& previous);
+    void menu(gl::ctx_t& ctx, ft::ft_face_t& face, gl::shader_t& text_shader);
+    void settings(gl::ctx_t& ctx, ft::ft_face_t& face, gl::shader_t& text_shader);
+    void hud(gl::ctx_t& ctx, ft::ft_face_t& face, gl::shader_t& text_shader);
+    void paused(gl::ctx_t& ctx, ft::ft_face_t& face, gl::shader_t& text_shader);
+    void codex(gl::ctx_t& ctx, ft::ft_face_t& face, gl::shader_t& text_shader);
     void load_discoveries();
     void save_discoveries() const;
-    static color_t kind_color(result_kind kind);
-    static color_t pigment(int ingredient);
 };
 
 }
