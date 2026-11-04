@@ -1,3 +1,7 @@
+/*
+ * gl/mesh.hpp -
+ *     Mesh storing and manipulating.
+ */
 #pragma once
 
 #include <numbers>

@@ -1,3 +1,7 @@
+/*
+ * gl/shader.hpp -
+ *     GLSL shaders storage, manipulation, VAD/VAO/VBO handling.
+ */
 #pragma once
 
 #include <gl/first.hpp>

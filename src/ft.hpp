@@ -1,3 +1,8 @@
+/*
+ * ft.hpp -
+ *     Wrapper around Freetype2 (https://freetype.org/) library. Provides a way to work with fonts,
+ *     and text.
+ */
 #pragma once
 
 extern "C" {

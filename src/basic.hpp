@@ -1,3 +1,7 @@
+/*
+ * basic.hpp -
+ *     Logging and basic functionality, that is lacking from standard library.
+ */
 #pragma once
 
 #include <print>

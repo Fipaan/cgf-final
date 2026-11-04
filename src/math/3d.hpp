@@ -1,3 +1,7 @@
+/*
+ * math/3d.hpp -
+ *     Math related to 3D objects, such as vectors, matrices, and etc.
+ */
 #pragma once
 
 extern "C" {

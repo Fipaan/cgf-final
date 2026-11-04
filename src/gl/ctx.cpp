@@ -120,13 +120,14 @@ void gl::ctx_t::before_loop()
 
 void gl::ctx_t::start_loop()
 {
-    // emscripten maintains its own main loop
-#ifdef __EMSCRIPTEN__
-    if (window_should_close()) {
-        emscripten_cancel_main_loop();
-        return;
-    }
-#endif // __EMSCRIPTEN__
+    // NOTE: un-comment once emscripten become a target
+//    // emscripten maintains its own main loop
+//#ifdef __EMSCRIPTEN__
+//    if (window_should_close()) {
+//        emscripten_cancel_main_loop();
+//        return;
+//    }
+//#endif // __EMSCRIPTEN__
     _start_frame = clock::now();
 }
 
