@@ -135,6 +135,8 @@ struct app_t {
         active_text_size = text_pixel_sizes = 100;
         if (!update_font_cache()) return false;
         if (!text_shader.from_files("./shaders/text.vert", "./shaders/text.frag")) return false;
+        if (!alchemy_ui.init()) return false;
+        ctx.set_vsync(true);
 
         glEnable(GL_DEPTH_TEST);
         ctx.clear_color(0x181818FF);
@@ -176,7 +178,7 @@ struct app_t {
         if (hit(gl::kb_key_t::p)) { perspective = true;  infofn("Projection: perspective"); }
         if (hit(gl::kb_key_t::z)) { z_up = !z_up;        infofn("Cylinder axis: {}", z_up ? "Z" : "Y"); }
 
-        if (hit(gl::kb_key_t::escape)) ctx.force_close();
+
     }
 
     void set_vec4(const char *name, const color_t& c)
@@ -189,7 +191,8 @@ struct app_t {
         ctx.start_loop();
         ctx.on_resize();
 
-        input(ctx.last_frame);
+        alchemy_ui.update(ctx);
+        if (alchemy_ui.game_interactive()) input(ctx.last_frame);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -285,7 +288,7 @@ int main(int argc, char **argv)
     if (!glfw_ctx.init()) return 1;
 
     gl::ctx_t ctx(glfw_ctx);
-    if (!ctx.create_window(1200, 900, "SMF viewer", nullptr, nullptr)) return 1;
+    if (!ctx.create_window(1200, 900, "Alchemy Room", nullptr, nullptr)) return 1;
     ctx.set_fps(60.0);
 
     // declared after ctx: GL objects die before the GLFW context
