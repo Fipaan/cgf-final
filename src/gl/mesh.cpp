@@ -99,6 +99,82 @@ size_t mesh_t::tri_count() const
     return indices.size() / 3;
 }
 
+mesh_t mesh_t::cube()
+{
+    struct face_t { vec3_t<GLfloat> n, u, v; }; // u x v = n
+    const face_t faces[6] = {
+        {{ 1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+        {{-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f}},
+        {{ 0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
+        {{ 0.0f,-1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+        {{ 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+        {{ 0.0f, 0.0f,-1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+    };
+
+    mesh_t m;
+    // 4 vertices per face, so normals stay flat
+    for (const auto& f : faces) {
+        uint32_t b = (uint32_t)m.vertices.size();
+        m.vertices.push_back(f.n - f.u - f.v);
+        m.vertices.push_back(f.n + f.u - f.v);
+        m.vertices.push_back(f.n + f.u + f.v);
+        m.vertices.push_back(f.n - f.u + f.v);
+        m.indices.insert(m.indices.end(), {b, b + 1, b + 2, b, b + 2, b + 3});
+    }
+    m.compute_normals();
+    return m;
+}
+
+mesh_t mesh_t::sphere(int stacks, int slices)
+{
+    mesh_t m;
+    m.vertices.emplace_back(0.0f, 1.0f, 0.0f); // north pole, index 0
+    for (int i = 1; i < stacks; ++i) {
+        GLfloat phi = gl::PI * (GLfloat)i / (GLfloat)stacks;
+        for (int j = 0; j < slices; ++j) {
+            GLfloat th = 2.0f * gl::PI * (GLfloat)j / (GLfloat)slices;
+            m.vertices.emplace_back(std::sin(phi) * std::cos(th), std::cos(phi), std::sin(phi) * std::sin(th));
+        }
+    }
+    m.vertices.emplace_back(0.0f, -1.0f, 0.0f); // south pole
+    const uint32_t south = (uint32_t)m.vertices.size() - 1;
+
+    auto ring = [&](int i, int j) -> uint32_t { return (uint32_t)(1 + (i - 1) * slices + (j % slices)); };
+
+    for (int j = 0; j < slices; ++j) {
+        m.indices.insert(m.indices.end(), {0u, ring(1, j + 1), ring(1, j)});
+    }
+    for (int i = 1; i < stacks - 1; ++i) {
+        for (int j = 0; j < slices; ++j) {
+            uint32_t a = ring(i, j),     b = ring(i, j + 1);
+            uint32_t d = ring(i + 1, j), c = ring(i + 1, j + 1);
+            m.indices.insert(m.indices.end(), {a, b, d, b, c, d});
+        }
+    }
+    for (int j = 0; j < slices; ++j) {
+        m.indices.insert(m.indices.end(), {south, ring(stacks - 1, j), ring(stacks - 1, j + 1)});
+    }
+
+    m.compute_normals();
+    // exact normals on a unit sphere
+    for (size_t i = 0; i < m.vertices.size(); ++i) m.vertex_normals[i] = vec3::normalize(m.vertices[i]);
+    return m;
+}
+
+mesh_t mesh_t::plane()
+{
+    mesh_t m;
+    m.vertices = {
+        {-1.0f, 0.0f, -1.0f},
+        {-1.0f, 0.0f,  1.0f},
+        { 1.0f, 0.0f,  1.0f},
+        { 1.0f, 0.0f, -1.0f},
+    };
+    m.indices = {0, 1, 2, 0, 2, 3};
+    m.compute_normals();
+    return m;
+}
+
 void mesh_t::build_buffer(std::vector<GLfloat>& out) const
 {
     out.clear();
