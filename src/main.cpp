@@ -13,6 +13,7 @@
 #include <basic.hpp>
 #include <math/3d.hpp>
 #include <ft.hpp>
+#include <ui/alchemy.hpp>
 #include <camera.hpp>
 #include <scene.hpp>
 
@@ -75,10 +76,12 @@ struct shelf_t {
 struct app_t {
     gl::glfw_ctx_t& glfw_ctx;
     gl::ctx_t&      ctx;
+    alchemy::ui_t   alchemy_ui;
 
     ft::ft_lib_t  ft_lib;
     ft::ft_face_t ft_face;
     gl::shader_t  text_shader;
+
     FT_UInt       text_pixel_sizes;
     FT_UInt       active_text_size;
 
@@ -150,6 +153,8 @@ struct app_t {
         active_text_size = text_pixel_sizes = 20;
         if (!update_font_cache()) return false;
         if (!text_shader.from_files("./shaders/text.vert", "./shaders/text.frag")) return false;
+        if (!alchemy_ui.init()) return false;
+        ctx.set_vsync(true);
 
         glEnable(GL_DEPTH_TEST);
         ctx.clear_color(0x181818FF);
@@ -388,11 +393,6 @@ struct app_t {
             model_material = (model_material + 1) % model_materials.size();
             if (object_t *o = scene.get("teapot")) o->material = model_materials[model_material];
         }
-
-        if (hit(gl::kb_key_t::escape)) {
-            if (ctx.mouse_captured) ctx.set_mouse_capture(false);
-            else                    ctx.force_close();
-        }
     }
 
     std::string hud_text() const
@@ -420,7 +420,8 @@ struct app_t {
         ctx.start_loop();
         ctx.on_resize();
 
-        input(ctx.last_frame);
+        alchemy_ui.update(ctx);
+        if (alchemy_ui.game_interactive()) input(ctx.last_frame);
 
         scene.update(ctx.last_frame);
         if (cam_mode == cam_mode_t::fps) {
@@ -487,6 +488,8 @@ struct app_t {
             glEnable(GL_DEPTH_TEST);
         }
 
+        alchemy_ui.draw(ctx, ft_face, text_shader);
+
         ctx.end_loop();
 
         return true;
@@ -504,7 +507,7 @@ int main(int argc, char **argv)
     if (!glfw_ctx.init()) return 1;
 
     gl::ctx_t ctx(glfw_ctx);
-    if (!ctx.create_window(1200, 900, "SMF viewer", nullptr, nullptr)) return 1;
+    if (!ctx.create_window(1200, 900, "Alchemy Room", nullptr, nullptr)) return 1;
     ctx.set_fps(60.0);
 
     // declared after ctx: GL objects die before the GLFW context
