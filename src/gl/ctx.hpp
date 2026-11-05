@@ -62,6 +62,9 @@ namespace gl {
         };
 
         GLFWwindow *window;
+        bool   mouse_captured;
+        bool   _mouse_primed;
+        double _mouse_x, _mouse_y;
         // NOTE: wscreen_size is size in window units
         vec2_t<int> screen_size_prev, screen_size, wscreen_size;
         vec2_t<GLfloat> DPI;
@@ -97,6 +100,12 @@ namespace gl {
         bool draw_text(ft::ft_face_t& ft_face, std::string text, vec2_t<GLfloat> pos, GLfloat height);
 
         kb_key_state_t get_key(kb_key_t key);
+
+        kb_key_state_t get_mouse_button(mouse_button_t button);
+        // hides the cursor and gives unbounded movement (mouse look)
+        void set_mouse_capture(bool capture);
+        // cursor movement in pixels since the previous call (0 on the first call after capture changes)
+        vec2_t<GLfloat> mouse_delta();
 
         void resize(int width, int height);
         void force_close(glfw_bool_t close = glfw_bool::TRUE);

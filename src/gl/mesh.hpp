@@ -27,6 +27,11 @@ struct mesh_t {
     void compute_normals();
     size_t tri_count() const;
 
+    // primitives, normals already computed
+    static mesh_t cube();                                 // [-1, 1]^3, flat normals
+    static mesh_t sphere(int stacks = 16, int slices = 32); // radius 1, smooth normals
+    static mesh_t plane();                                // [-1, 1] on XZ, normal +Y
+
     // 3 vertices per triangle, 9 floats each: pos, smooth normal, |face normal|
     void build_buffer(std::vector<GLfloat>& out) const;
 };

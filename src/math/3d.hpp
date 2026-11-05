@@ -7,6 +7,7 @@
 extern "C" {
     #include <GL/gl.h>
 }
+#include <cassert>
 #include <cmath>
 #include <type_traits>
 
@@ -81,6 +82,14 @@ struct mat4_t {
     constexpr static mat4_t look_at(vec3_t<GLfloat> eye, vec3_t<GLfloat> center, vec3_t<GLfloat> up);
     constexpr static mat4_t perspective(GLfloat fovy, GLfloat aspect, GLfloat n, GLfloat f);
     constexpr static mat4_t ortho(GLfloat l, GLfloat r, GLfloat b, GLfloat t, GLfloat n, GLfloat f);
+
+    constexpr static mat4_t translate(vec3_t<GLfloat> t);
+    constexpr static mat4_t scale(vec3_t<GLfloat> s);
+    constexpr static mat4_t rotate_x(GLfloat angle);
+    constexpr static mat4_t rotate_y(GLfloat angle);
+    constexpr static mat4_t rotate_z(GLfloat angle);
+    // T * Ry * Rx * Rz * S, `rot` is euler angles in radians
+    constexpr static mat4_t trs(vec3_t<GLfloat> pos, vec3_t<GLfloat> rot, vec3_t<GLfloat> scale);
 
     constexpr mat4_t operator*(const mat4_t& rhs) const;
 
@@ -362,6 +371,56 @@ constexpr mat4_t mat4_t::ortho(GLfloat l, GLfloat r, GLfloat b, GLfloat t, GLflo
     return res;
 }
 
+constexpr mat4_t mat4_t::translate(vec3_t<GLfloat> t)
+{
+    mat4_t r = identity();
+    r.at(0,3) = t.x;
+    r.at(1,3) = t.y;
+    r.at(2,3) = t.z;
+    return r;
+}
+
+constexpr mat4_t mat4_t::scale(vec3_t<GLfloat> s)
+{
+    mat4_t r = identity();
+    r.at(0,0) = s.x;
+    r.at(1,1) = s.y;
+    r.at(2,2) = s.z;
+    return r;
+}
+
+constexpr mat4_t mat4_t::rotate_x(GLfloat angle)
+{
+    GLfloat c = std::cos(angle), s = std::sin(angle);
+    mat4_t r = identity();
+    r.at(1,1) =  c; r.at(1,2) = -s;
+    r.at(2,1) =  s; r.at(2,2) =  c;
+    return r;
+}
+
+constexpr mat4_t mat4_t::rotate_y(GLfloat angle)
+{
+    GLfloat c = std::cos(angle), s = std::sin(angle);
+    mat4_t r = identity();
+    r.at(0,0) =  c; r.at(0,2) =  s;
+    r.at(2,0) = -s; r.at(2,2) =  c;
+    return r;
+}
+
+constexpr mat4_t mat4_t::rotate_z(GLfloat angle)
+{
+    GLfloat c = std::cos(angle), s = std::sin(angle);
+    mat4_t r = identity();
+    r.at(0,0) =  c; r.at(0,1) = -s;
+    r.at(1,0) =  s; r.at(1,1) =  c;
+    return r;
+}
+
+constexpr mat4_t mat4_t::trs(vec3_t<GLfloat> pos, vec3_t<GLfloat> rot, vec3_t<GLfloat> scale_)
+{
+    return translate(pos) * rotate_y(rot.y) * rotate_x(rot.x) * rotate_z(rot.z) * scale(scale_);
+}
+
 constexpr mat4_t mat4_t::operator*(const mat4_t& rhs) const
 {
     mat4_t c{};
@@ -380,9 +439,9 @@ constexpr mat4_t mat4_t::operator*(const mat4_t& rhs) const
 constexpr vec3_t<GLfloat> mat4_t::transform_point(const vec3_t<GLfloat>& p) const
 {
     return vec3_t<GLfloat>(
-        at(0,0)*p.x + at(0,1)*p.y + at(0,2)*p.z + at(0,2),
-        at(1,0)*p.x + at(1,1)*p.y + at(1,2)*p.z + at(1,2),
-        at(2,0)*p.x + at(2,1)*p.y + at(2,2)*p.z + at(2,2)
+        at(0,0)*p.x + at(0,1)*p.y + at(0,2)*p.z + at(0,3),
+        at(1,0)*p.x + at(1,1)*p.y + at(1,2)*p.z + at(1,3),
+        at(2,0)*p.x + at(2,1)*p.y + at(2,2)*p.z + at(2,3)
     );
 }
 

@@ -42,6 +42,9 @@ gl::ctx_t::ctx_t(glfw_ctx_t& glfw_ctx) :
     glfw_ctx(glfw_ctx)
 {
     initialized = false;
+    mouse_captured = false;
+    _mouse_primed  = false;
+    _mouse_x = _mouse_y = 0.0;
 }
 
 gl::ctx_t::~ctx_t() {}
@@ -354,6 +357,39 @@ gl::kb_key_state_t gl::ctx_t::get_key(kb_key_t key)
 {
     assert(initialized);
     return kb_key_state_t(glfwGetKey(window, key));
+}
+
+gl::kb_key_state_t gl::ctx_t::get_mouse_button(mouse_button_t button)
+{
+    assert(initialized);
+    return glfwGetMouseButton(window, button) == kb_key_state_t::press ?
+           kb_key_state_t::press : kb_key_state_t::release;
+}
+
+void gl::ctx_t::set_mouse_capture(bool capture)
+{
+    assert(initialized);
+    // TODO: GLFW_CURSOR, GLFW_CURSOR_*, GLFW_RAW_MOUSE_MOTION under custom enums
+    glfwSetInputMode(window, GLFW_CURSOR, capture ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+    if (capture && glfwRawMouseMotionSupported()) {
+        glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, glfw_bool::TRUE);
+    }
+    mouse_captured = capture;
+    _mouse_primed  = false;
+}
+
+vec2_t<GLfloat> gl::ctx_t::mouse_delta()
+{
+    assert(initialized);
+    double x, y;
+    glfwGetCursorPos(window, &x, &y);
+
+    vec2_t<GLfloat> d(0.0f, 0.0f);
+    if (_mouse_primed) d = vec2_t<GLfloat>((GLfloat)(x - _mouse_x), (GLfloat)(y - _mouse_y));
+    _mouse_x = x;
+    _mouse_y = y;
+    _mouse_primed = true;
+    return d;
 }
 
 void gl::ctx_t::force_close(glfw_bool_t close)
