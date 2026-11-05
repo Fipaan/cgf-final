@@ -12,6 +12,7 @@ namespace alchemy {
 
 enum class screen_t { main_menu, settings, game, pause, codex };
 
+// TODO: text is too small
 class ui_t {
 public:
     ui_t();

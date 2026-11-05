@@ -82,8 +82,14 @@ void ui_t::update(gl::ctx_t& ctx) {
     scale_ = std::clamp(std::min(width_ / 1200.0f, height_ / 900.0f), 0.55f, 1.35f);
 
     if (pressed(ctx, gl::kb_key_t::escape, previous_escape_)) {
-        if (screen_ == screen_t::game) screen_ = screen_t::pause;
-        else if (screen_ == screen_t::pause) screen_ = screen_t::game;
+        if (screen_ == screen_t::game) {
+            screen_ = screen_t::pause;
+            ctx.set_mouse_capture(false);
+        }
+        else if (screen_ == screen_t::pause) {
+            screen_ = screen_t::game;
+            ctx.set_mouse_capture(true);
+        }
         else if (screen_ == screen_t::settings) screen_ = return_screen_;
         else if (screen_ == screen_t::codex) screen_ = codex_return_;
     }

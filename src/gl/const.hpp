@@ -163,6 +163,20 @@ namespace gl {
     };
 
     // Convention:
+    // GLFW_MOUSE_BUTTON_X -> mouse_x
+    static_assert(GLFW_MOUSE_BUTTON_8 == GLFW_MOUSE_BUTTON_LAST);
+    enum mouse_button_t : std::uint8_t {
+        mouse_left   = GLFW_MOUSE_BUTTON_LEFT,
+        mouse_right  = GLFW_MOUSE_BUTTON_RIGHT,
+        mouse_middle = GLFW_MOUSE_BUTTON_MIDDLE,
+        mouse_4      = GLFW_MOUSE_BUTTON_4,
+        mouse_5      = GLFW_MOUSE_BUTTON_5,
+        mouse_6      = GLFW_MOUSE_BUTTON_6,
+        mouse_7      = GLFW_MOUSE_BUTTON_7,
+        mouse_8      = GLFW_MOUSE_BUTTON_8,
+    };
+
+    // Convention:
     // [UNSIGNED_]X -> [U]X
     // GL_X -> gl_x
     enum data_kind : std::uint16_t {
