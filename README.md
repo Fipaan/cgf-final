@@ -4,10 +4,20 @@ This is a 3D potion-making game written in [GLFW](https://www.glfw.org/)/C++, an
 
 # Dependecies 
 
+## Overall
+
 - [CMake](https://cmake.org/)
 - C++ compiler
-- GLFW (via CMake)
-- Freetype (via CMake)
+- [GLFW 3.4](https://www.glfw.org/) (via CMake)
+- [Freetype 2.13.3](https://freetype.org/) (via CMake)
+
+## Windows Toolchain
+
+- Toolchain:     MSYS2 UCRT64
+- Compiler:      Clang 22.1.7
+- C++ Standard:  C++23
+- CMake:         >3.20
+- Generator:     Ninja
 
 # Build & Run
 
@@ -48,3 +58,7 @@ $ cmake -B build\ -DCMAKE_BUILD_TYPE=Debug
 $ cmake --build build\
 $ .\build\cgf.exe
 ```
+
+```sh
+
+ ```

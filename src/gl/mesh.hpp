@@ -4,15 +4,10 @@
  */
 #pragma once
 
-#include <numbers>
-#include <optional>
-#include <span>
-#include <string>
 #include <vector>
 #include <cstdint>
 
 #include <gl/first.hpp>
-#include <gl/const.hpp>
 #include <gl/shader.hpp>
 #include <math/3d.hpp>
 

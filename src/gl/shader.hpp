@@ -6,6 +6,7 @@
 
 #include <gl/first.hpp>
 #include <gl/const.hpp>
+#include <span>
 
 namespace gl {
 

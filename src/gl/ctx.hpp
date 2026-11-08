@@ -6,10 +6,10 @@
 #pragma once
 
 #include <gl/first.hpp>
+#include <math/2d.hpp>
 #include <gl/const.hpp>
 #include <gl/shader.hpp>
 #include <gl/2d.hpp>
-#include <math/2d.hpp>
 #include <ft.hpp>
 
 /* Usage:

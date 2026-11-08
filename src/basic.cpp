@@ -1,5 +1,8 @@
 #include "basic.hpp"
 
+#include <fstream>
+#include <sstream>
+
 bool read_entire_file(std::string& file, const char *filename)
 {
     std::ifstream sfile(filename);

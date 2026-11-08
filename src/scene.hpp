@@ -12,11 +12,11 @@
 #include <string>
 #include <utility>
 
-#include <gl/mesh.hpp>
-#include <gl/shader.hpp>
-#include <basic.hpp>
+#include <gl/first.hpp>
 #include <math/2d.hpp>
 #include <math/3d.hpp>
+#include <gl/mesh.hpp>
+#include <gl/shader.hpp>
 #include <physics.hpp>
 
 struct material_t {

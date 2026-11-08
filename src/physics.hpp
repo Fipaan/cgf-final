@@ -6,9 +6,9 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
 #include <vector>
 
+#include <gl/first.hpp>
 #include <math/3d.hpp>
 
 /* Usage:

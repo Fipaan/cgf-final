@@ -9,6 +9,7 @@ extern "C" {
     #include <GLFW/glfw3.h>
 }
 #include <cstdint>
+#include <numbers>
 
 namespace gl {
     constexpr auto PI = std::numbers::pi_v<GLfloat>;
