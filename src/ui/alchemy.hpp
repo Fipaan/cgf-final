@@ -1,9 +1,9 @@
 #pragma once
 
 #include <array>
-#include <cstddef>
 #include <string>
 
+#include <gl/first.hpp>
 #include <gl/ctx.hpp>
 #include <gl/shader.hpp>
 #include <ui/alchemy_recipes.hpp>

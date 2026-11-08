@@ -5,10 +5,7 @@
 #pragma once
 
 #include <print>
-#include <fstream>
-#include <sstream>
 #include <string>
-#include <cassert>
 
 template<typename... Args>
 constexpr void infofn(std::format_string<Args...> fmt, Args&&... args);
@@ -49,6 +46,5 @@ template<typename... Args>
 constexpr void debugfn(std::format_string<Args...> fmt, Args&&... args)
 {
     (void)(fmt);
-    (void)(args);
 }
 #endif // DEBUG

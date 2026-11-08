@@ -1,17 +1,12 @@
 #include <algorithm>
-#include <numbers>
-#include <optional>
-#include <span>
 #include <string>
-#include <type_traits>
 #include <vector>
-#include <cstdint>
-#include <map>
 
+#include <basic.hpp>
+#include <gl/first.hpp>
+#include <math/3d.hpp>
 #include <gl/mesh.hpp>
 #include <gl/ctx.hpp>
-#include <basic.hpp>
-#include <math/3d.hpp>
 #include <ft.hpp>
 #include <ui/alchemy.hpp>
 #include <camera.hpp>

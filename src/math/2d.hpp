@@ -9,6 +9,8 @@ extern "C" {
 }
 #include <vector>
 #include <cmath>
+#include <span>
+#include <algorithm>
 
 template<typename T>
 struct vec2_t {

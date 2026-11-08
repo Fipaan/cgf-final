@@ -1,8 +1,9 @@
 #include "ctx.hpp"
 
-#include <basic.hpp>
 #include <algorithm>
 #include <thread>
+#include <span>
+#include <basic.hpp>
 
 ////////////////////////////////////////////////////////////////////////////////
 // TODO: too many OpenGL error checks, maybe cache something and treat
@@ -296,7 +297,6 @@ void gl::ctx_t::draw_rect(rect_t rect)
 bool gl::ctx_t::draw_text(ft::ft_face_t& ft_face, std::string text, vec2_t<GLfloat> pos, GLfloat height)
 {
     const vec2_t<GLfloat> scale = height / ft_face.base_size.y;
-    FT_Error error;
 
     const FT_Size_Metrics& metrics = ft_face.face->size->metrics;
     const FT_Pos ascender = (metrics.ascender >> 6) * scale.y;

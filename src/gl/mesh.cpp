@@ -4,8 +4,13 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <numbers>
+#include <optional>
+#include <span>
+#include <string>
 
 #include <basic.hpp>
+#include <gl/const.hpp>
 
 bool mesh_t::load_smf(const char *path)
 {

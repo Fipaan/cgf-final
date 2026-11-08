@@ -37,7 +37,6 @@ bool gl::check_gl_error(std::string_view desc_ctx)
 {
     GLenum err;
     std::size_t err_count = 0;
-    const char *desc = NULL;
     while((err = glGetError()) != GL_NO_ERROR) {
         std::string_view desc;
         switch (err) {

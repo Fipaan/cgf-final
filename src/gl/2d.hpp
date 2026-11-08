@@ -22,7 +22,11 @@ namespace gl {
     };
 
     struct triangle_t {
+#ifdef _WIN32
+        static constexpr double R_to_side_ratio_eq_tr = 0.5773502691896258;
+#else
         static constexpr double R_to_side_ratio_eq_tr = 1.0 / std::sqrt(3.0);
+#endif // _WIN32
 
         vec2_t<GLfloat> vertices[3];
         color_t colors[3];
