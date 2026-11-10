@@ -73,6 +73,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 target_compile_options(${PROJECT_NAME} PRIVATE
     "-Wall" "-Wextra"
+    "-Wno-missing-field-initializers"
     "-Wno-missing-designated-field-initializers"
 )
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
