@@ -58,7 +58,3 @@ $ cmake -B build\ -DCMAKE_BUILD_TYPE=Debug
 $ cmake --build build\
 $ .\build\cgf.exe
 ```
-
-```sh
-
- ```
