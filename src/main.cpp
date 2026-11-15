@@ -12,6 +12,7 @@
 #include <ui/alchemy.hpp>
 #include <scene/scene.hpp>
 #include <scene/player.hpp>
+#include <scene/drag.hpp>
 #include <scene/room.hpp>
 
 struct app_t {
@@ -23,6 +24,7 @@ struct app_t {
 
     scene_t  scene;
     player_t player;
+    drag_t   drag;
 
     // `M` cycles the loaded model through `room::prop_materials`
     size_t model_material = 0;
@@ -36,7 +38,8 @@ struct app_t {
         text(c),
         gui(c, draw2d, text),
         alchemy_ui(gui),
-        player(scene)
+        player(scene),
+        drag(scene)
     {}
 
     bool init(const char *smf_path)
@@ -73,10 +76,13 @@ struct app_t {
     {
         gl::input_t& in = ctx.input;
 
+        // before the capture click below, so that click doesn't also grab
+        if (in.mouse_captured) drag.input(in, (int)player.body);
+
         // mouse look: click to capture, Esc (pause) to release
         if (!in.mouse_captured && in.mouse_hit(gl::mouse_left)) in.set_mouse_capture(true);
 
-        player.input(in, ctx.last_frame);
+        player.input(in, ctx.last_frame, !drag.rotating);
 
         if (in.key_hit(gl::kb_key_t::f1)) hud_visible = !hud_visible;
 
@@ -111,12 +117,7 @@ struct app_t {
         return std::format(
             "FPS: {:.0f}   {}x{}\n"
             "Camera: {}   pos: {:.1f} {:.1f} {:.1f}\n"
-            "Shading: {}   Model material: {}\n"
-            "\n"
-            "Click: capture mouse   Esc: pause   Tab: codex   F1: hide this\n"
-            "F2: fly / first-person   WASD: move   Shift: sprint\n"
-            "Space: jump (fps) / up (fly)   Ctrl: down (fly)\n"
-            "1/2/3: shading   M: material   Light 0: arrows , .",
+            "Shading: {}   Model material: {}",
             ctx.actual_fps, ctx.screen_size.x, ctx.screen_size.y,
             player.mode == cam_mode_t::fps ? "first-person" : "free-fly",
             pos.x, pos.y, pos.z,
@@ -124,16 +125,32 @@ struct app_t {
         );
     }
 
+    // top-right, the top-left corner belongs to the UI
     void draw_hud()
     {
         const gl::f32 margin = 10.0f;
         const std::string str = hud_text();
-        const vec2_t<gl::f32> pos(margin, ctx.screen_size.y - margin);
+        const gl::f32 width = text.measure(str, hud_text_size).x;
+        const vec2_t<gl::f32> pos(ctx.screen_size.x - margin - width, ctx.screen_size.y - margin);
 
         ctx.begin_overlay();
         // drop shadow keeps the text readable on any background
         text.draw(str, pos + vec2_t<gl::f32>(1.5f, -1.5f), hud_text_size, color_t(0.0f, 0.0f, 0.0f, 1.0f));
         text.draw(str, pos, hud_text_size, color_t(1.0f, 1.0f, 1.0f, 1.0f));
+        ctx.end_overlay();
+    }
+
+    void draw_crosshair()
+    {
+        const gl::f32 cx = gui.width / 2.0f, cy = gui.height / 2.0f;
+        const gl::f32 s  = gui.scale;
+        const color_t color = drag.holding()      ? color_t(0.35f, 0.85f, 0.55f, 1.0f) :
+                              !drag.hover.empty() ? color_t(0.84f, 0.64f, 0.35f, 1.0f) :
+                                                    color_t(1.0f, 1.0f, 1.0f, 1.0f);
+
+        ctx.begin_overlay();
+        gui.fill({cx - 8.0f * s, cy - 1.0f * s, 16.0f * s, 2.0f * s}, color);
+        gui.fill({cx - 1.0f * s, cy - 8.0f * s, 2.0f * s, 16.0f * s}, color);
         ctx.end_overlay();
     }
 
@@ -144,7 +161,9 @@ struct app_t {
 
         alchemy_ui.update();
         if (alchemy_ui.game_interactive()) input();
+        else drag.release();
 
+        drag.update(ctx.input, ctx.last_frame);
         scene.update(ctx.last_frame);
         player.update();
 
@@ -154,6 +173,7 @@ struct app_t {
         if (!scene.draw(aspect)) return false;
 
         if (hud_visible) draw_hud();
+        if (alchemy_ui.game_interactive() && ctx.input.mouse_captured) draw_crosshair();
         alchemy_ui.draw();
 
         ctx.end_loop();

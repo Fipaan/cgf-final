@@ -16,6 +16,7 @@
 #include <3d/mesh.hpp>
 #include <3d/camera.hpp>
 #include <3d/physics.hpp>
+#include <3d/rigid.hpp>
 
 struct material_t {
     color_t ambient, diffuse, specular;
@@ -24,8 +25,8 @@ struct material_t {
 
 enum class body_kind_t {
     none,    // visual only
-    dynamic, // gravity + collisions
-    fixed,   // collides, never moves
+    dynamic, // oriented rigid body: gravity, friction, tips over, can be pushed
+    fixed,   // axis aligned box, collides, never moves
 };
 
 // matches `shading_mode` in the mesh shader
@@ -36,20 +37,37 @@ struct object_desc_t {
     std::string mesh;     // key from `add_mesh`
     std::string material; // key from `add_material`
     vec3_t<gl::f32> pos;
-    vec3_t<gl::f32> rot;  // euler XYZ, radians, visual only (colliders are never rotated)
+    vec3_t<gl::f32> rot;  // euler (see `mat4_t::trs`), radians, the starting orientation
     vec3_t<gl::f32> scale = vec3_t<gl::f32>(1.0f);
     body_kind_t body = body_kind_t::none;
     // collider half extents, default is mesh bounds * scale
     std::optional<vec3_t<gl::f32>> half;
-    gl::f32 restitution = 0.0f;
-    gl::f32 friction    = 4.0f;
+    gl::f32 restitution = 0.3f;
+    gl::f32 friction    = 0.6f; // Coulomb coefficient
+    // default is the collider volume * `DENSITY`
+    std::optional<gl::f32> mass;
+    phys::shape_t shape = phys::shape_t::box; // dynamic only, a sphere uses `half.x` as radius
 };
+
+// kg/m^3 of dynamic objects without an explicit mass
+constexpr gl::f32 DENSITY = 10.0f;
 
 struct object_t {
     std::string mesh, material;
-    vec3_t<gl::f32> pos, rot, scale;
+    vec3_t<gl::f32> pos, scale;
+    // NOTE: for dynamic objects `pos` and `orient` follow the rigid body, for fixed ones the orientation
+    //       is visual only (the collider is an axis aligned box)
+    mat4_t orient = mat4_t::identity();
     bool visible = true;
-    int  body    = -1; // index into `scene_t::world.bodies`, -1 = not simulated
+    int  body    = -1; // fixed: index into `scene_t::world.bodies`
+    int  rigid   = -1; // dynamic: index into `scene_t::rigids.bodies`
+};
+
+// result of `scene_t::pick`, `name` is empty if the ray hit nothing that can be moved
+struct pick_t {
+    std::string name;
+    gl::f32 dist = 0.0f;
+    vec3_t<gl::f32> point;
 };
 
 /* Usage:
@@ -73,7 +91,10 @@ struct scene_t {
     bool initialized;
 
     gl::shader_t shader; // needs `view`, `proj`, `light*`, `shading_mode`, `model` and `material_*` uniforms
-    phys::world_t world;
+    phys::world_t       world;  // static boxes and the player
+    phys::rigid_world_t rigids; // everything that moves
+    int player_body = -1;       // index into `world.bodies`, rigid bodies are pushed by it
+    gl::f32 _step_acc = 0.0f;
     std::map<std::string, material_t> materials;
     std::map<std::string, object_t>   objects;
 
@@ -100,7 +121,12 @@ struct scene_t {
     object_t *get(const std::string& name);
     bool      remove(const std::string& name);
 
-    phys::body_t *body_of(const object_t& object);
+    phys::body_t  *body_of(const object_t& object);
+    phys::rigid_t *rigid_of(const object_t& object);
+
+    // nearest body along the ray, `ignore` (an index into `world.bodies`) is skipped. Walls and boards hide
+    // what is behind them, so only a movable (dynamic) object is reported
+    pick_t pick(vec3_t<gl::f32> origin, vec3_t<gl::f32> dir, gl::f32 max_dist, int ignore);
 
     void update(gl::f32 dt);
     // camera, lights, then every visible object

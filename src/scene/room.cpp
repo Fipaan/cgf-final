@@ -147,6 +147,7 @@ void room::fill_shelf(scene_t& scene, const std::string& name, const shelf_t& s)
                 .pos      = pos,
                 .scale    = vec3_t<gl::f32>(r),
                 .body     = body_kind_t::dynamic,
+                .shape    = k % 3 == 0 ? phys::shape_t::box : phys::shape_t::sphere,
             });
         }
     }

@@ -14,7 +14,9 @@ void player_t::spawn(vec3_t<gl::f32> feet)
     body = scene.world.add(phys::body_t{
         .pos = feet + vec3_t<gl::f32>(0, PLAYER_HALF.y + 0.01f, 0), .half = PLAYER_HALF,
         .friction = 0.0f, // velocity is set directly by input
+        .mass = PLAYER_MASS,
     });
+    scene.player_body = (int)body;
     scene.cam.pos = get_body().pos + vec3_t<gl::f32>(0, EYE_HEIGHT, 0);
 }
 
@@ -31,11 +33,11 @@ void player_t::set_mode(cam_mode_t mode)
     this->mode = mode;
 }
 
-void player_t::input(gl::input_t& input, gl::f32 dt)
+void player_t::input(gl::input_t& input, gl::f32 dt, bool look)
 {
     camera_t& cam = scene.cam;
 
-    if (input.mouse_captured) {
+    if (input.mouse_captured && look) {
         vec2_t<gl::f32> d = input.mouse_delta();
         cam.look(d.x, d.y);
     }

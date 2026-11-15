@@ -1,6 +1,6 @@
 /*
  * 3d/physics.hpp -
- *     Minimal rigid body physics: gravity + AABB collisions. Header only.
+ *     Minimal rigid body physics: gravity + AABB collisions, Header only.
  */
 #pragma once
 
@@ -33,6 +33,7 @@ namespace phys {
         vec3_t<gl::f32> vel;
         gl::f32 restitution = 0.0f;  // 0 = no bounce, 1 = perfect bounce
         gl::f32 friction    = 4.0f;  // horizontal drag while on ground, 1/s
+        gl::f32 mass        = 1.0f;  // used by `rigid_world_t` when the body is pushed by rigid bodies
         bool is_static      = false; // never moves, still collides
         bool enabled        = true;  // disabled bodies are skipped completely
         bool on_ground      = false; // set by `world_t::step`
@@ -124,6 +125,7 @@ inline void phys::world_t::step(gl::f32 dt)
 
                 comp(b.pos, axis) = comp(o.pos, axis) + (up ? -reach : reach);
                 if (axis == 1 && !up) b.on_ground = true;
+
                 comp(b.vel, axis) = -v * b.restitution;
             }
         }
