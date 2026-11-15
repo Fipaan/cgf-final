@@ -1,6 +1,7 @@
 #include "shader.hpp"
 
-#include <basic.hpp>
+#include <core/log.hpp>
+#include <core/io.hpp>
 
 bool gl::verify_shader(std::string_view type, GLuint shader)
 {
@@ -32,28 +33,28 @@ gl::vad_t::vad_t(GLuint index, vad_cpv_t components_per_vertex, GLsizei stride_c
     this->components_per_vertex = components_per_vertex;
     this->type       = data_kind::gl_float;
     this->normalized = GL_TRUE;
-    stride = stride_count * sizeof(GLfloat);
-    offset = (const void*)(offset_count * sizeof(GLfloat));
+    stride = stride_count * sizeof(f32);
+    offset = (const void*)(offset_count * sizeof(f32));
 }
 
 bool gl::vad_t::define_for_current_vbo()
 {
     glVertexAttribPointer(index, components_per_vertex, type, normalized, stride, offset);
-    if (check_gl_error("glVertexAttribPointer")) return false;
+    if (!check_gl_error("glVertexAttribPointer")) return false;
     return true;
 }
 
 bool gl::vad_t::enable_for_current_vbo()
 {
     glEnableVertexAttribArray(index);
-    if (check_gl_error("glEnableVertexAttribArray")) return false;
+    if (!check_gl_error("glEnableVertexAttribArray")) return false;
     return true;
 }
 
 bool gl::vad_t::disable_for_current_vbo()
 {
     glDisableVertexAttribArray(index);
-    if (check_gl_error("glDisableVertexAttribArray")) return false;
+    if (!check_gl_error("glDisableVertexAttribArray")) return false;
     return true;
 }
 
@@ -139,7 +140,7 @@ bool gl::shader_t::use()
 {
     assert(initialized);
     glUseProgram(program);
-    if (check_gl_error("glUseProgram")) return false;
+    if (!check_gl_error("glUseProgram")) return false;
     return true;
 }
 
@@ -148,30 +149,30 @@ GLuint gl::shader_t::uniform_loc(std::string name)
     return glGetUniformLocation(program, name.data());
 }
 
-bool gl::shader_t::uniform(std::string name, GLfloat v0)
+bool gl::shader_t::uniform(std::string name, f32 v0)
 {
     glUniform1f(uniform_loc(name), v0);
-    return gl::check_gl_error("glUniform1f");
+    return !check_gl_error("glUniform1f");
 }
 
-// bool gl::shader_t::uniform(std::string name, GLfloat v0, GLfloat v1);
+// bool gl::shader_t::uniform(std::string name, f32 v0, f32 v1);
 
-bool gl::shader_t::uniform(std::string name, GLfloat v0, GLfloat v1, GLfloat v2)
+bool gl::shader_t::uniform(std::string name, f32 v0, f32 v1, f32 v2)
 {
     glUniform3f(uniform_loc(name), v0, v1, v2);
-    return gl::check_gl_error("glUniform3f");
+    return !check_gl_error("glUniform3f");
 }
 
-bool gl::shader_t::uniform(std::string name, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3)
+bool gl::shader_t::uniform(std::string name, f32 v0, f32 v1, f32 v2, f32 v3)
 {
     glUniform4f(uniform_loc(name), v0, v1, v2, v3);
-    return gl::check_gl_error("glUniform4f");
+    return !check_gl_error("glUniform4f");
 }
 
 bool gl::shader_t::uniform(std::string name, GLint v0)
 {
     glUniform1i(uniform_loc(name), v0);
-    return gl::check_gl_error("glUniform1i");
+    return !check_gl_error("glUniform1i");
 }
 
 // bool gl::shader_t::uniform(std::string name, GLint v0, GLint v1);
@@ -188,14 +189,14 @@ bool gl::shader_t::uniform(std::string name, GLint v0)
 // bool gl::shader_t::uniform(std::string name, GLdouble x, GLdouble y, GLdouble z);
 // bool gl::shader_t::uniform(std::string name, GLdouble x, GLdouble y, GLdouble z, GLdouble w);
 
-// bool gl::shader_t::uniform(v_type_t type, std::string name, GLsizei count, const GLfloat *value);
+// bool gl::shader_t::uniform(v_type_t type, std::string name, GLsizei count, const f32 *value);
 // bool gl::shader_t::uniform(v_type_t type, std::string name, GLsizei count, const GLint *value);
 // bool gl::shader_t::uniform(v_type_t type, std::string name, GLsizei count, const GLdouble *value);
 
 
-bool gl::shader_t::uniform(m_type_t type, std::string name, GLsizei count, gl_bool_t transpose, const GLfloat *value)
+bool gl::shader_t::uniform(m_type_t type, std::string name, GLsizei count, gl_bool_t transpose, const f32 *value)
 {
-    void (*glUniformCallback)(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value) = nullptr;
+    void (*glUniformCallback)(GLint location, GLsizei count, GLboolean transpose, const f32 *value) = nullptr;
     std::string_view glUniformCallbackName = "";
 
 #define __glUniformCallbackSetup(suffix)               \
@@ -215,12 +216,10 @@ bool gl::shader_t::uniform(m_type_t type, std::string name, GLsizei count, gl_bo
     case gl::m_type_t::m4x4: __glUniformCallbackSetup(4fv);
     }
 
-#undef __glUniformCallbackName
-#undef __glUniformCallbackStringify
 #undef __glUniformCallbackSetup
 
     glUniformCallback(uniform_loc(name), count, transpose, value);
-    return gl::check_gl_error(glUniformCallbackName);
+    return !check_gl_error(glUniformCallbackName);
 }
 
 // bool gl::shader_t::uniform(m_type_t type, std::string name, GLsizei count, gl_bool_t transpose, const GLdouble *value);
@@ -256,7 +255,7 @@ bool gl::vao_t::bind()
 {
     assert(initialized);
     glBindVertexArray(arr);
-    if (check_gl_error()) return false;
+    if (!check_gl_error()) return false;
     return true;
 }
 
@@ -288,7 +287,7 @@ bool gl::vbo_t::bind()
 {
     assert(initialized);
     glBindBuffer(kind, buffer);
-    if (check_gl_error()) return false;
+    if (!check_gl_error()) return false;
     return true;
 }
 

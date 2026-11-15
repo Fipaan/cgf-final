@@ -1,7 +1,9 @@
-#include "basic.hpp"
+#include "io.hpp"
 
 #include <fstream>
 #include <sstream>
+
+#include <core/log.hpp>
 
 bool read_entire_file(std::string& file, const char *filename)
 {

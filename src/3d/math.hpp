@@ -1,12 +1,10 @@
 /*
- * math/3d.hpp -
+ * 3d/math.hpp -
  *     Math related to 3D objects, such as vectors, matrices, and etc.
  */
 #pragma once
 
-extern "C" {
-    #include <GL/gl.h>
-}
+#include <core/gl/first.hpp>
 #include <cassert>
 #include <cmath>
 #include <type_traits>
@@ -60,7 +58,7 @@ namespace vec3 {
 
     // zero vector stays zero (degenerate triangles)
     template<typename T>
-    constexpr vec3_t<T> normalize(const vec3_t<T>& a);
+    constexpr vec3_t<T> norm(const vec3_t<T>& a);
 
     template<typename T>
     constexpr vec3_t<T> abs(const vec3_t<T>& a);
@@ -71,38 +69,38 @@ constexpr auto operator*(K scale, const vec3_t<T>& vec);
 
 // column-major: m[col*4 + row], upload with transpose = GL_FALSE
 struct mat4_t {
-    GLfloat m[16];
+    gl::f32 m[16];
 
-    constexpr GLfloat& at(size_t i, size_t j);
-    constexpr const GLfloat& at(size_t i, size_t j) const;
+    constexpr gl::f32& at(size_t i, size_t j);
+    constexpr const gl::f32& at(size_t i, size_t j) const;
 
-    constexpr void insert_row(size_t i, vec3_t<GLfloat> row, size_t shift = 0);
+    constexpr void insert_row(size_t i, vec3_t<gl::f32> row, size_t shift = 0);
 
     constexpr static mat4_t identity();
-    constexpr static mat4_t look_at(vec3_t<GLfloat> eye, vec3_t<GLfloat> center, vec3_t<GLfloat> up);
-    constexpr static mat4_t perspective(GLfloat fovy, GLfloat aspect, GLfloat n, GLfloat f);
-    constexpr static mat4_t ortho(GLfloat l, GLfloat r, GLfloat b, GLfloat t, GLfloat n, GLfloat f);
+    constexpr static mat4_t look_at(vec3_t<gl::f32> eye, vec3_t<gl::f32> center, vec3_t<gl::f32> up);
+    constexpr static mat4_t perspective(gl::f32 fovy, gl::f32 aspect, gl::f32 n, gl::f32 f);
+    constexpr static mat4_t ortho(gl::f32 l, gl::f32 r, gl::f32 b, gl::f32 t, gl::f32 n, gl::f32 f);
 
-    constexpr static mat4_t translate(vec3_t<GLfloat> t);
-    constexpr static mat4_t scale(vec3_t<GLfloat> s);
-    constexpr static mat4_t rotate_x(GLfloat angle);
-    constexpr static mat4_t rotate_y(GLfloat angle);
-    constexpr static mat4_t rotate_z(GLfloat angle);
+    constexpr static mat4_t translate(vec3_t<gl::f32> t);
+    constexpr static mat4_t scale(vec3_t<gl::f32> s);
+    constexpr static mat4_t rotate_x(gl::f32 angle);
+    constexpr static mat4_t rotate_y(gl::f32 angle);
+    constexpr static mat4_t rotate_z(gl::f32 angle);
     // T * Ry * Rx * Rz * S, `rot` is euler angles in radians
-    constexpr static mat4_t trs(vec3_t<GLfloat> pos, vec3_t<GLfloat> rot, vec3_t<GLfloat> scale);
+    constexpr static mat4_t trs(vec3_t<gl::f32> pos, vec3_t<gl::f32> rot, vec3_t<gl::f32> scale);
 
     constexpr mat4_t operator*(const mat4_t& rhs) const;
 
     // M * (p, 1), no perspective divide
-    constexpr vec3_t<GLfloat> transform_point(const vec3_t<GLfloat>& p) const;
+    constexpr vec3_t<gl::f32> transform_point(const vec3_t<gl::f32>& p) const;
 };
 
 // cylindrical coordinates
 struct cyl_t {
-    GLfloat angle, radius, height;
+    gl::f32 angle, radius, height;
 
-    constexpr vec3_t<GLfloat> to_cart_z_up() const;
-    constexpr vec3_t<GLfloat> to_cart_y_up() const;
+    constexpr vec3_t<gl::f32> to_cart_z_up() const;
+    constexpr vec3_t<gl::f32> to_cart_y_up() const;
 };
 
 ///// IMPLEMENTATION ///////////////////////////////////////////////////////////
@@ -292,7 +290,7 @@ constexpr T vec3::len(const vec3_t<T>& a)
 }
 
 template<typename T>
-constexpr vec3_t<T> vec3::normalize(const vec3_t<T>& a)
+constexpr vec3_t<T> vec3::norm(const vec3_t<T>& a)
 {
     T l = vec3::len(a);
     if (l < (T)1e-12) return vec3_t<T>::zero();
@@ -305,16 +303,16 @@ constexpr vec3_t<T> vec3::abs(const vec3_t<T>& a)
     return vec3_t<T>(std::fabs(a.x), std::fabs(a.y), std::fabs(a.z));
 }
 
-constexpr GLfloat& mat4_t::at(size_t i, size_t j)
+constexpr gl::f32& mat4_t::at(size_t i, size_t j)
 {
     return m[4*j + i];
 }
-constexpr const GLfloat& mat4_t::at(size_t i, size_t j) const
+constexpr const gl::f32& mat4_t::at(size_t i, size_t j) const
 {
     return m[4*j + i];
 }
 
-constexpr void mat4_t::insert_row(size_t i, vec3_t<GLfloat> row, size_t shift)
+constexpr void mat4_t::insert_row(size_t i, vec3_t<gl::f32> row, size_t shift)
 {
     assert(shift <= 1);
     at(i, shift+0) = row.x;
@@ -329,12 +327,12 @@ constexpr mat4_t mat4_t::identity()
     return r;
 }
 
-constexpr mat4_t mat4_t::look_at(vec3_t<GLfloat> eye, vec3_t<GLfloat> center, vec3_t<GLfloat> up)
+constexpr mat4_t mat4_t::look_at(vec3_t<gl::f32> eye, vec3_t<gl::f32> center, vec3_t<gl::f32> up)
 {
-    vec3_t<GLfloat> f = vec3::normalize(center - eye);
-    vec3_t<GLfloat> s = vec3::normalize(vec3::cross(f, up));
-    vec3_t<GLfloat> u = vec3::cross(s, f);
-    vec3_t<GLfloat> b = -f;
+    vec3_t<gl::f32> f = vec3::norm(center - eye);
+    vec3_t<gl::f32> s = vec3::norm(vec3::cross(f, up));
+    vec3_t<gl::f32> u = vec3::cross(s, f);
+    vec3_t<gl::f32> b = -f;
 
     mat4_t r = identity();
     r.insert_row(0, s);
@@ -346,9 +344,9 @@ constexpr mat4_t mat4_t::look_at(vec3_t<GLfloat> eye, vec3_t<GLfloat> center, ve
     return r;
 }
 
-constexpr mat4_t mat4_t::perspective(GLfloat fovy, GLfloat aspect, GLfloat n, GLfloat f)
+constexpr mat4_t mat4_t::perspective(gl::f32 fovy, gl::f32 aspect, gl::f32 n, gl::f32 f)
 {
-    GLfloat t = std::tan(fovy / 2.0f);
+    gl::f32 t = std::tan(fovy / 2.0f);
 
     mat4_t r{};
     r.at(0,0) = 1.0f / (aspect * t);
@@ -359,7 +357,7 @@ constexpr mat4_t mat4_t::perspective(GLfloat fovy, GLfloat aspect, GLfloat n, GL
     return r;
 }
 
-constexpr mat4_t mat4_t::ortho(GLfloat l, GLfloat r, GLfloat b, GLfloat t, GLfloat n, GLfloat f)
+constexpr mat4_t mat4_t::ortho(gl::f32 l, gl::f32 r, gl::f32 b, gl::f32 t, gl::f32 n, gl::f32 f)
 {
     mat4_t res = identity();
     res.at(0,0) =  2.0f / (r - l);
@@ -371,7 +369,7 @@ constexpr mat4_t mat4_t::ortho(GLfloat l, GLfloat r, GLfloat b, GLfloat t, GLflo
     return res;
 }
 
-constexpr mat4_t mat4_t::translate(vec3_t<GLfloat> t)
+constexpr mat4_t mat4_t::translate(vec3_t<gl::f32> t)
 {
     mat4_t r = identity();
     r.at(0,3) = t.x;
@@ -380,7 +378,7 @@ constexpr mat4_t mat4_t::translate(vec3_t<GLfloat> t)
     return r;
 }
 
-constexpr mat4_t mat4_t::scale(vec3_t<GLfloat> s)
+constexpr mat4_t mat4_t::scale(vec3_t<gl::f32> s)
 {
     mat4_t r = identity();
     r.at(0,0) = s.x;
@@ -389,34 +387,34 @@ constexpr mat4_t mat4_t::scale(vec3_t<GLfloat> s)
     return r;
 }
 
-constexpr mat4_t mat4_t::rotate_x(GLfloat angle)
+constexpr mat4_t mat4_t::rotate_x(gl::f32 angle)
 {
-    GLfloat c = std::cos(angle), s = std::sin(angle);
+    gl::f32 c = std::cos(angle), s = std::sin(angle);
     mat4_t r = identity();
     r.at(1,1) =  c; r.at(1,2) = -s;
     r.at(2,1) =  s; r.at(2,2) =  c;
     return r;
 }
 
-constexpr mat4_t mat4_t::rotate_y(GLfloat angle)
+constexpr mat4_t mat4_t::rotate_y(gl::f32 angle)
 {
-    GLfloat c = std::cos(angle), s = std::sin(angle);
+    gl::f32 c = std::cos(angle), s = std::sin(angle);
     mat4_t r = identity();
     r.at(0,0) =  c; r.at(0,2) =  s;
     r.at(2,0) = -s; r.at(2,2) =  c;
     return r;
 }
 
-constexpr mat4_t mat4_t::rotate_z(GLfloat angle)
+constexpr mat4_t mat4_t::rotate_z(gl::f32 angle)
 {
-    GLfloat c = std::cos(angle), s = std::sin(angle);
+    gl::f32 c = std::cos(angle), s = std::sin(angle);
     mat4_t r = identity();
     r.at(0,0) =  c; r.at(0,1) = -s;
     r.at(1,0) =  s; r.at(1,1) =  c;
     return r;
 }
 
-constexpr mat4_t mat4_t::trs(vec3_t<GLfloat> pos, vec3_t<GLfloat> rot, vec3_t<GLfloat> scale_)
+constexpr mat4_t mat4_t::trs(vec3_t<gl::f32> pos, vec3_t<gl::f32> rot, vec3_t<gl::f32> scale_)
 {
     return translate(pos) * rotate_y(rot.y) * rotate_x(rot.x) * rotate_z(rot.z) * scale(scale_);
 }
@@ -426,7 +424,7 @@ constexpr mat4_t mat4_t::operator*(const mat4_t& rhs) const
     mat4_t c{};
     for (int col = 0; col < 4; ++col) {
         for (int row = 0; row < 4; ++row) {
-            GLfloat sum = 0;
+            gl::f32 sum = 0;
             for (int k = 0; k < 4; ++k) {
                 sum += at(row,k) * rhs.at(k,col);
             }
@@ -436,25 +434,25 @@ constexpr mat4_t mat4_t::operator*(const mat4_t& rhs) const
     return c;
 }
 
-constexpr vec3_t<GLfloat> mat4_t::transform_point(const vec3_t<GLfloat>& p) const
+constexpr vec3_t<gl::f32> mat4_t::transform_point(const vec3_t<gl::f32>& p) const
 {
-    return vec3_t<GLfloat>(
+    return vec3_t<gl::f32>(
         at(0,0)*p.x + at(0,1)*p.y + at(0,2)*p.z + at(0,3),
         at(1,0)*p.x + at(1,1)*p.y + at(1,2)*p.z + at(1,3),
         at(2,0)*p.x + at(2,1)*p.y + at(2,2)*p.z + at(2,3)
     );
 }
 
-constexpr vec3_t<GLfloat> cyl_t::to_cart_z_up() const
+constexpr vec3_t<gl::f32> cyl_t::to_cart_z_up() const
 {
-    GLfloat a = radius * std::cos(angle);
-    GLfloat b = radius * std::sin(angle);
-    return vec3_t<GLfloat>(a, b, height);
+    gl::f32 a = radius * std::cos(angle);
+    gl::f32 b = radius * std::sin(angle);
+    return vec3_t<gl::f32>(a, b, height);
 }
 
-constexpr vec3_t<GLfloat> cyl_t::to_cart_y_up() const
+constexpr vec3_t<gl::f32> cyl_t::to_cart_y_up() const
 {
-    GLfloat a = radius * std::cos(angle);
-    GLfloat b = radius * std::sin(angle);
-    return vec3_t<GLfloat>(a, height, b);
+    gl::f32 a = radius * std::cos(angle);
+    gl::f32 b = radius * std::sin(angle);
+    return vec3_t<gl::f32>(a, height, b);
 }

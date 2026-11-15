@@ -9,8 +9,8 @@ extern "C" {
     #include <ft2build.h>
     #include FT_FREETYPE_H
 }
-#include <gl/first.hpp>
-#include <math/2d.hpp>
+#include <core/gl/first.hpp>
+#include <2d/math.hpp>
 
 namespace ft {
     void log_ft_error(FT_Error err, std::string type);
@@ -34,7 +34,6 @@ namespace ft {
         FT_Face         face;
         std::string     path;
         bool            initialized;
-        GLuint          texture;
         vec2_t<FT_UInt> base_size;
 
         ft_face_t(ft_lib_t& lib);
@@ -46,9 +45,9 @@ namespace ft {
         //     units: pixels
         //     width  = 0 -> width  = height
         //     height = 0 -> height = width
-        bool set_pixel_sizes(vec2_t<FT_UInt> pixel_size, vec2_t<GLfloat> dpi = vec2_t<GLfloat>::one());
+        bool set_pixel_sizes(vec2_t<FT_UInt> pixel_size, vec2_t<gl::f32> dpi = vec2_t<gl::f32>::one());
 
-        vec2_t<FT_UInt> measure_text(const std::string& text, GLfloat height, GLfloat spacing = 0);
+        vec2_t<FT_UInt> measure_text(const std::string& text, gl::f32 height, gl::f32 spacing = 0);
 
         // char_size:
         //     units: 1/64 of points

@@ -1,5 +1,5 @@
 /*
- * gl/first.hpp -
+ * core/gl/first.hpp -
  *     Main header for GL module, required to be included first (before any other header that uses OpenGL).
  *     Provides basic GL/GLFW functionality
  */
@@ -22,7 +22,8 @@ extern "C" {
 namespace gl {
     using clock      = std::chrono::steady_clock;
     using time_point = std::chrono::time_point<clock>;
-    using duration   = std::chrono::duration<GLfloat>;
+    using f32        = GLfloat;
+    using duration   = std::chrono::duration<f32>;
 #ifdef ABORT_ON_ANY_GL_ERROR
     extern bool any_gl_error;
 #endif // ABORT_ON_ANY_GL_ERROR

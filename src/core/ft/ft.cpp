@@ -1,6 +1,6 @@
 #include "ft.hpp"
 
-#include <basic.hpp>
+#include <core/log.hpp>
 
 void ft::log_ft_error(FT_Error err, std::string type)
 {
@@ -62,19 +62,10 @@ bool ft::ft_face_t::init(std::string path, FT_Long face_index)
         "face init"
     );
 
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
     return initialized;
 }
 
-bool ft::ft_face_t::set_pixel_sizes(vec2_t<FT_UInt> pixel_size, vec2_t<GLfloat> dpi)
+bool ft::ft_face_t::set_pixel_sizes(vec2_t<FT_UInt> pixel_size, vec2_t<gl::f32> dpi)
 {
     assert(initialized);
     base_size = pixel_size;
@@ -85,7 +76,7 @@ bool ft::ft_face_t::set_pixel_sizes(vec2_t<FT_UInt> pixel_size, vec2_t<GLfloat> 
     );
 }
 
-vec2_t<FT_UInt> ft::ft_face_t::measure_text(const std::string& text, GLfloat height, GLfloat spacing)
+vec2_t<FT_UInt> ft::ft_face_t::measure_text(const std::string& text, gl::f32 height, gl::f32 spacing)
 {
     const FT_UInt line_h = face->size->metrics.height >> 6;
 
@@ -114,8 +105,8 @@ vec2_t<FT_UInt> ft::ft_face_t::measure_text(const std::string& text, GLfloat hei
     FT_Pos desc = face->size->metrics.descender >> 6;
     FT_Pos h = (asc - desc) + (lines - 1) * line_h;
 
-    const vec2_t<GLfloat> scale = height / base_size.y;
-    return (vec2_t<GLfloat>(max_w, h) * scale).cast<FT_UInt>();
+    const vec2_t<gl::f32> scale = height / base_size.y;
+    return (vec2_t<gl::f32>(max_w, h) * scale).cast<FT_UInt>();
 }
 
 bool ft::ft_face_t::set_char_size(vec2_t<FT_F26Dot6> char_size, vec2_t<FT_UInt> res)
