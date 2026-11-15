@@ -1,13 +1,11 @@
 /*
- * gl/const.hpp -
+ * core/gl/const.hpp -
  *     Mainly maps OpenGL/GLFW macros into more usable macros. Also defines other macros that trims
  *     name span (e.g. glUniform* family functions).
  */
 #pragma once
 
-extern "C" {
-    #include <GLFW/glfw3.h>
-}
+#include <core/gl/first.hpp>
 #include <cstdint>
 #include <numbers>
 

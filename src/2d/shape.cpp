@@ -1,6 +1,6 @@
-#include "2d.hpp"
+#include "shape.hpp"
 
-gl::rect_t::rect_t(vec2_t<GLfloat> pos, vec2_t<GLfloat> size)
+rect_t::rect_t(vec2_t<gl::f32> pos, vec2_t<gl::f32> size)
     : colors{
         color_t(0xFFFFFFFF),
         color_t(0xFFFFFFFF),
@@ -14,7 +14,7 @@ gl::rect_t::rect_t(vec2_t<GLfloat> pos, vec2_t<GLfloat> size)
     size.y = size.y;
 }
 
-gl::rect_t::rect_t(GLfloat x, GLfloat y, GLfloat w, GLfloat h)
+rect_t::rect_t(gl::f32 x, gl::f32 y, gl::f32 w, gl::f32 h)
     : colors{
         color_t(0xFFFFFFFF),
         color_t(0xFFFFFFFF),
@@ -28,7 +28,7 @@ gl::rect_t::rect_t(GLfloat x, GLfloat y, GLfloat w, GLfloat h)
     size.y = h;
 }
 
-gl::rect_t::rect_t()
+rect_t::rect_t()
     : colors{
         color_t(0xFFFFFFFF),
         color_t(0xFFFFFFFF),
@@ -39,7 +39,7 @@ gl::rect_t::rect_t()
     pos.x = pos.y = size.x = size.y = 0;
 }
 
-void gl::rect_t::spread_pos(std::vector<GLfloat>& storage)
+void rect_t::spread_pos(std::vector<gl::f32>& storage)
 {
     storage.resize(4*2);
     storage[2*0+0] = pos.x;
@@ -52,7 +52,7 @@ void gl::rect_t::spread_pos(std::vector<GLfloat>& storage)
     storage[2*3+1] = pos.y + size.y;
 }
 
-void gl::rect_t::spread_color(std::vector<GLfloat>& storage, gl::vad_cpv_t cpv)
+void rect_t::spread_color(std::vector<gl::f32>& storage, gl::vad_cpv_t cpv)
 {
     storage.resize(std::size(colors)*4);
     bool rgb = true;
@@ -81,7 +81,7 @@ void gl::rect_t::spread_color(std::vector<GLfloat>& storage, gl::vad_cpv_t cpv)
     }
 }
 
-gl::triangle_t::triangle_t(vec2_t<GLfloat> v1, vec2_t<GLfloat> v2, vec2_t<GLfloat> v3)
+triangle_t::triangle_t(vec2_t<gl::f32> v1, vec2_t<gl::f32> v2, vec2_t<gl::f32> v3)
     : vertices{v1, v2, v3},
       colors{
           color_t(0xFFFFFFFF),
@@ -92,7 +92,7 @@ gl::triangle_t::triangle_t(vec2_t<GLfloat> v1, vec2_t<GLfloat> v2, vec2_t<GLfloa
     update_cache();
 }
 
-gl::triangle_t::triangle_t(vec2_t<GLfloat> center, vec2_t<GLfloat> up, GLfloat radius)
+triangle_t::triangle_t(vec2_t<gl::f32> center, vec2_t<gl::f32> up, gl::f32 radius)
     : colors{
           color_t(0xFFFFFFFF),
           color_t(0xFFFFFFFF),
@@ -103,7 +103,7 @@ gl::triangle_t::triangle_t(vec2_t<GLfloat> center, vec2_t<GLfloat> up, GLfloat r
     up = up * radius;
     vertices[0] = center + up;
 
-    constexpr GLfloat angle = 2*gl::PI / 3.0f;
+    constexpr gl::f32 angle = 2*gl::PI / 3.0f;
 
     vertices[1] = center + up.rot(angle);
     vertices[2] = center + up.rot(angle);
@@ -111,7 +111,7 @@ gl::triangle_t::triangle_t(vec2_t<GLfloat> center, vec2_t<GLfloat> up, GLfloat r
     update_cache();
 }
 
-gl::triangle_t::triangle_t()
+triangle_t::triangle_t()
     : colors{
           color_t(0xFFFFFFFF),
           color_t(0xFFFFFFFF),
@@ -119,7 +119,7 @@ gl::triangle_t::triangle_t()
       }
 {}
 
-void gl::triangle_t::update_cache()
+void triangle_t::update_cache()
 {
     auto& [a, b, c] = vertices;
     sides[0] = vec2::dst(a, b);
@@ -136,11 +136,11 @@ void gl::triangle_t::update_cache()
     } else R = 0.0f;
 }
 
-void gl::triangle_t::change_R(GLfloat R)
+void triangle_t::change_R(gl::f32 R)
 {
     assert(this->R != 0);
 
-    const GLfloat scale = R / this->R;
+    const gl::f32 scale = R / this->R;
     const auto center = get_center();
 
     for (auto& vertex : vertices) {
@@ -150,36 +150,36 @@ void gl::triangle_t::change_R(GLfloat R)
     update_cache();
 }
 
-void gl::triangle_t::change_side(GLfloat side)
+void triangle_t::change_side(gl::f32 side)
 {
     change_R(side * R_to_side_ratio_eq_tr);
 }
 
-vec2_t<GLfloat> gl::triangle_t::get_center()
+vec2_t<gl::f32> triangle_t::get_center()
 {
     return (vertices[0] + vertices[1] + vertices[2]) / 3.0f;
 }
 
-void gl::triangle_t::set_center(vec2_t<GLfloat> center)
+void triangle_t::set_center(vec2_t<gl::f32> center)
 {
     move(center - get_center());
 }
 
-void gl::triangle_t::set_up(vec2_t<GLfloat> up)
+void triangle_t::set_up(vec2_t<gl::f32> up)
 {
     const auto current_up = vertices[0] - get_center();
 
     rot(vec2::compute_angle(up, current_up));
 }
 
-void gl::triangle_t::move(vec2_t<GLfloat> vec)
+void triangle_t::move(vec2_t<gl::f32> vec)
 {
     for (auto& vertex : vertices) {
         vertex += vec;
     }
 }
 
-void gl::triangle_t::rot(GLfloat angle)
+void triangle_t::rot(gl::f32 angle)
 {
     const auto center = get_center();
 
@@ -188,7 +188,7 @@ void gl::triangle_t::rot(GLfloat angle)
     }
 }
 
-void gl::triangle_t::spread_pos(std::vector<GLfloat>& storage)
+void triangle_t::spread_pos(std::vector<gl::f32>& storage)
 {
     storage.resize(3 * 2);
 
@@ -198,8 +198,8 @@ void gl::triangle_t::spread_pos(std::vector<GLfloat>& storage)
     }
 }
 
-void gl::triangle_t::spread_color(
-    std::vector<GLfloat>& storage,
+void triangle_t::spread_color(
+    std::vector<gl::f32>& storage,
     gl::vad_cpv_t cpv
 )
 {

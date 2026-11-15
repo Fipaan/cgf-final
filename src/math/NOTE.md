@@ -1,3 +1,0 @@
-# Description
-
-Math related functionality.

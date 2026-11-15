@@ -1,5 +1,5 @@
 /*
- * basic.hpp -
+ * core/log.hpp -
  *     Logging and basic functionality, that is lacking from standard library.
  */
 #pragma once
@@ -15,8 +15,6 @@ constexpr void errorfn(std::format_string<Args...> fmt, Args&&... args);
 
 template<typename... Args>
 constexpr void debugfn(std::format_string<Args...> fmt, Args&&... args);
-
-bool read_entire_file(std::string& file, const char *filename);
 
 ///// IMPLEMENTATION ///////////////////////////////////////////////////////////
 

@@ -1,11 +1,10 @@
 /*
- * gl/shader.hpp -
+ * core/gl/shader.hpp -
  *     GLSL shaders storage, manipulation, VAD/VAO/VBO handling.
  */
 #pragma once
 
-#include <gl/first.hpp>
-#include <gl/const.hpp>
+#include <core/gl/const.hpp>
 #include <span>
 
 namespace gl {
@@ -46,10 +45,10 @@ namespace gl {
 
         GLuint uniform_loc(std::string name);
 
-        bool uniform(std::string name, GLfloat v0);
-        bool uniform(std::string name, GLfloat v0, GLfloat v1);
-        bool uniform(std::string name, GLfloat v0, GLfloat v1, GLfloat v2);
-        bool uniform(std::string name, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3);
+        bool uniform(std::string name, f32 v0);
+        bool uniform(std::string name, f32 v0, f32 v1);
+        bool uniform(std::string name, f32 v0, f32 v1, f32 v2);
+        bool uniform(std::string name, f32 v0, f32 v1, f32 v2, f32 v3);
 
         bool uniform(std::string name, GLint v0);
         bool uniform(std::string name, GLint v0, GLint v1);
@@ -66,11 +65,11 @@ namespace gl {
         bool uniform(std::string name, GLdouble x, GLdouble y, GLdouble z);
         bool uniform(std::string name, GLdouble x, GLdouble y, GLdouble z, GLdouble w);
 
-        bool uniform(v_type_t type, std::string name, GLsizei count, const GLfloat *value);
+        bool uniform(v_type_t type, std::string name, GLsizei count, const f32 *value);
         bool uniform(v_type_t type, std::string name, GLsizei count, const GLint *value);
         bool uniform(v_type_t type, std::string name, GLsizei count, const GLdouble *value);
 
-        bool uniform(m_type_t type, std::string name, GLsizei count, gl_bool_t transpose, const GLfloat *value);
+        bool uniform(m_type_t type, std::string name, GLsizei count, gl_bool_t transpose, const f32 *value);
         bool uniform(m_type_t type, std::string name, GLsizei count, gl_bool_t transpose, const GLdouble *value);
 
         bool uniform_block_binding(GLuint uniformBlockIndex, GLuint uniformBlockBinding);
@@ -135,7 +134,7 @@ bool gl::vbo_t::init_buffer(std::span<T> arr, dsu_t usage)
 {
     if (!bind()) return false;
     glBufferData(kind, arr.size() * sizeof(arr[0]), arr.data(), usage);
-    if (check_gl_error()) return false;
+    if (!check_gl_error()) return false;
     return true;
 }
 

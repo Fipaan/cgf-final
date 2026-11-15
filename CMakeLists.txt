@@ -55,7 +55,7 @@ message(STATUS "==========================================")
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 add_executable(${PROJECT_NAME}
     ${SOURCES}
-    src/glad/glad.c
+    src/core/glad/glad.c
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE

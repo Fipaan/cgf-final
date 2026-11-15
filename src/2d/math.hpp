@@ -1,16 +1,15 @@
 /*
- * math/2d.hpp -
+ * 2d/math.hpp -
  *     Math related to 2D objects, such as vectors.
  */
 #pragma once
 
-extern "C" {
-    #include <GL/gl.h>
-}
 #include <vector>
 #include <cmath>
 #include <span>
 #include <algorithm>
+
+#include <core/gl/first.hpp>
 
 template<typename T>
 struct vec2_t {
@@ -71,13 +70,13 @@ template<typename T, typename K> requires std::is_arithmetic_v<K>
 constexpr auto operator/(K scale, const vec2_t<T>& vec);
 
 struct hsva_t {
-    GLfloat h, s, v, a;
+    gl::f32 h, s, v, a;
 };
 
 struct color_t {
-    GLfloat r, g, b, a;
+    gl::f32 r, g, b, a;
 
-    constexpr color_t(GLfloat r, GLfloat g, GLfloat b,  GLfloat a);
+    constexpr color_t(gl::f32 r, gl::f32 g, gl::f32 b,  gl::f32 a);
     constexpr color_t(uint32_t rgba);
 
     constexpr static color_t from_hex(uint32_t rgba);
@@ -314,7 +313,7 @@ constexpr auto vec2::compute_angle(const vec2_t<T>& v1, const vec2_t<K>& v2)
     return result;
 }
 
-constexpr color_t::color_t(GLfloat r, GLfloat g, GLfloat b,  GLfloat a)
+constexpr color_t::color_t(gl::f32 r, gl::f32 g, gl::f32 b,  gl::f32 a)
 {
     this->r = r;
     this->g = g;
@@ -324,10 +323,10 @@ constexpr color_t::color_t(GLfloat r, GLfloat g, GLfloat b,  GLfloat a)
 
 constexpr color_t::color_t(uint32_t rgba)
 {
-    r = ((GLfloat)((rgba >> 24) & 0xFF)) / 0xFF;
-    g = ((GLfloat)((rgba >> 16) & 0xFF)) / 0xFF;
-    b = ((GLfloat)((rgba >> 8 ) & 0xFF)) / 0xFF;
-    a = ((GLfloat)((rgba >> 0 ) & 0xFF)) / 0xFF;
+    r = ((gl::f32)((rgba >> 24) & 0xFF)) / 0xFF;
+    g = ((gl::f32)((rgba >> 16) & 0xFF)) / 0xFF;
+    b = ((gl::f32)((rgba >> 8 ) & 0xFF)) / 0xFF;
+    a = ((gl::f32)((rgba >> 0 ) & 0xFF)) / 0xFF;
 }
 
 constexpr color_t color_t::from_hex(uint32_t rgba)
@@ -337,9 +336,9 @@ constexpr color_t color_t::from_hex(uint32_t rgba)
 
 constexpr hsva_t color_t::to_hsva() const
 {
-    GLfloat max = std::max({r, g, b});
-    GLfloat min = std::min({r, g, b});
-    GLfloat delta = max - min;
+    gl::f32 max = std::max({r, g, b});
+    gl::f32 min = std::min({r, g, b});
+    gl::f32 delta = max - min;
 
     hsva_t hsva;
     auto& [h, s, v, a] = hsva;
@@ -371,11 +370,11 @@ constexpr color_t color_t::from_hsva(hsva_t hsva)
     s = std::clamp(s, 0.0f, 1.0f);
     v = std::clamp(v, 0.0f, 1.0f);
 
-    GLfloat c = v * s;
-    GLfloat x = c * (1.0f - std::fabs(std::fmod(h/60.0f, 2.0f) - 1.0f));
-    GLfloat m = v - c;
+    gl::f32 c = v * s;
+    gl::f32 x = c * (1.0f - std::fabs(std::fmod(h/60.0f, 2.0f) - 1.0f));
+    gl::f32 m = v - c;
 
-    GLfloat r, g, b;
+    gl::f32 r, g, b;
     if (h < 60.0f) {
         r = c;
         g = x;

@@ -7,7 +7,7 @@
 #include <vector>
 #include <span>
 
-#include <basic.hpp>
+#include <core/log.hpp>
 
 #ifdef __set_any_gl_error
     #warn "__set_any_gl_error intrinsic already defined! ABORT_ON_ANY_GL_ERROR may result in incorrect behavior or not compile."
@@ -57,7 +57,7 @@ bool gl::check_gl_error(std::string_view desc_ctx)
         err_count += 1;
         __set_any_gl_error(true);
     }
-    return err_count > 0;
+    return err_count == 0;
 }
 
 bool gl::check_glfw_error(std::string_view desc_ctx)
@@ -73,7 +73,7 @@ bool gl::check_glfw_error(std::string_view desc_ctx)
         }
         err_count += 1;
     }
-    return err_count > 0;
+    return err_count == 0;
 }
 
 void gl::glfw_errlog(std::string_view funcname)
