@@ -1,0 +1,23 @@
+{
+  "name": "Table",
+  "triangles": 5336,
+  "mesh_objects": 40,
+  "dimensions_m": [
+    1.850000023841858,
+    0.9440000057220459,
+    0.8241659998893738
+  ],
+  "bounds_min": [
+    -0.925000011920929,
+    -0.47200000286102295,
+    0.0
+  ],
+  "bounds_max": [
+    0.925000011920929,
+    0.47200000286102295,
+    0.8241659998893738
+  ],
+  "obj_axes": "Z up, -Y forward",
+  "glb_axes": "glTF standard Y up",
+  "root": "Table_Root"
+}
