@@ -1,0 +1,23 @@
+{
+  "name": "Door",
+  "triangles": 6300,
+  "mesh_objects": 37,
+  "dimensions_m": [
+    1.3799999952316284,
+    0.23899999260902405,
+    2.259999990463257
+  ],
+  "bounds_min": [
+    -0.6899999976158142,
+    -0.11400000005960464,
+    0.0
+  ],
+  "bounds_max": [
+    0.6899999976158142,
+    0.125,
+    2.259999990463257
+  ],
+  "obj_axes": "Z up, -Y forward",
+  "glb_axes": "glTF standard Y up",
+  "root": "Door_Root"
+}

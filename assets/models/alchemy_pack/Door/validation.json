@@ -1,0 +1,45 @@
+{
+  "asset": "Door",
+  "exports": [
+    {
+      "format": "obj",
+      "pass": true,
+      "triangles": 6300,
+      "dimensions_m": [
+        1.3799999952316284,
+        0.2390000969171524,
+        2.259999990463257
+      ],
+      "invalid_vertices": 0,
+      "zero_area_faces": 0,
+      "meshes_without_uv": 0,
+      "meshes_without_material": 0,
+      "missing_textures": [],
+      "material_count": 4
+    },
+    {
+      "format": "glb",
+      "pass": true,
+      "triangles": 6300,
+      "dimensions_m": [
+        1.3799999952316284,
+        0.23900000751018524,
+        2.259999990463257
+      ],
+      "invalid_vertices": 0,
+      "zero_area_faces": 0,
+      "meshes_without_uv": 0,
+      "meshes_without_material": 0,
+      "missing_textures": [],
+      "material_count": 4,
+      "hinge_found": true,
+      "hinge_location": [
+        -0.5099999904632568,
+        -0.0,
+        0.0
+      ],
+      "hinge_children": 29,
+      "hinge_rotation_test": true
+    }
+  ]
+}
