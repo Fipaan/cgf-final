@@ -5,9 +5,13 @@
  */
 #pragma once
 
+#include <functional>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
+#include <tuple>
+#include <vector>
 
 #include <core/gl/first.hpp>
 #include <core/gl/shader.hpp>
@@ -29,6 +33,14 @@ enum class body_kind_t {
     fixed,   // axis aligned box, collides, never moves
 };
 
+struct scene_t;
+
+// all callbacks get names, not pointers: objects may be added or removed from inside a callback
+using interact_fn_t  = std::function<void(scene_t&, const std::string& self)>;
+// `other` is the object touched, or "player"; `impulse` tells how hard (about mass * speed)
+using collision_fn_t = std::function<void(scene_t&, const std::string& self, const std::string& other, gl::f32 impulse)>;
+using trigger_fn_t   = std::function<void(scene_t&, const std::string& trigger, const std::string& object)>;
+
 // matches `shading_mode` in the mesh shader
 enum class shading_t : int { normals = 0, gouraud = 1, phong = 2 };
 
@@ -47,6 +59,10 @@ struct object_desc_t {
     // default is the collider volume * `DENSITY`
     std::optional<gl::f32> mass;
     phys::shape_t shape = phys::shape_t::box; // dynamic only, a sphere uses `half.x` as radius
+    // see `object_t`
+    std::string    prompt;
+    interact_fn_t  on_interact;
+    collision_fn_t on_collision;
 };
 
 // kg/m^3 of dynamic objects without an explicit mass
@@ -61,13 +77,29 @@ struct object_t {
     bool visible = true;
     int  body    = -1; // fixed: index into `scene_t::world.bodies`
     int  rigid   = -1; // dynamic: index into `scene_t::rigids.bodies`
+
+    // E while looking at it (needs a collider): `scene_t::interact`. `prompt` is what the UI may show.
+    std::string   prompt;
+    interact_fn_t on_interact;
+    // the moment it starts touching something, see `scene_t::update`. Fixed objects work too.
+    collision_fn_t on_collision;
 };
 
-// result of `scene_t::pick`, `name` is empty if the ray hit nothing that can be moved
+// A box in the world that tells which dynamic objects are inside (their centre is). Good for "fell into the can".
+struct trigger_t {
+    vec3_t<gl::f32> pos, half;
+    // only objects it returns true for count, default is every dynamic object
+    std::function<bool(const std::string& name, const object_t& object)> filter;
+    trigger_fn_t on_enter, on_exit;
+    std::set<std::string> inside; // kept up to date by `scene_t::update`
+};
+
+// result of `scene_t::pick`, `name` is empty if the ray hit nothing that is an object
 struct pick_t {
     std::string name;
     gl::f32 dist = 0.0f;
     vec3_t<gl::f32> point;
+    bool movable = false; // a dynamic object, not a wall or a board
 };
 
 /* Usage:
@@ -97,6 +129,7 @@ struct scene_t {
     gl::f32 _step_acc = 0.0f;
     std::map<std::string, material_t> materials;
     std::map<std::string, object_t>   objects;
+    std::map<std::string, trigger_t>  triggers;
 
     camera_t  cam;
     shading_t shading = shading_t::phong;
@@ -124,9 +157,14 @@ struct scene_t {
     phys::body_t  *body_of(const object_t& object);
     phys::rigid_t *rigid_of(const object_t& object);
 
-    // nearest body along the ray, `ignore` (an index into `world.bodies`) is skipped. Walls and boards hide
-    // what is behind them, so only a movable (dynamic) object is reported
+    trigger_t *add_trigger(const std::string& name, const trigger_t& trigger);
+    bool       remove_trigger(const std::string& name);
+
+    // nearest object with a collider along the ray, `ignore` (an index into `world.bodies`) is skipped.
+    // Walls and boards hide what is behind them
     pick_t pick(vec3_t<gl::f32> origin, vec3_t<gl::f32> dir, gl::f32 max_dist, int ignore);
+    // runs `on_interact` of the nearest object within `reach`, false if there is none
+    bool interact(vec3_t<gl::f32> origin, vec3_t<gl::f32> dir, gl::f32 reach, int ignore);
 
     void update(gl::f32 dt);
     // camera, lights, then every visible object
@@ -140,4 +178,12 @@ struct scene_t {
 
     // used internally, not really meant to use outside
     bool _draw_objects();
+    struct touch_event_t {
+        int a; phys::touch_t::kind_t kind; int b; gl::f32 impulse;
+    };
+    // (rigid, kind, other) -> steps since it was last touching, a resting contact flickers
+    std::map<std::tuple<int, int, int>, int> _touching;
+    std::vector<touch_event_t> _events;
+    void _collect_touches();
+    void _dispatch_events();
 };

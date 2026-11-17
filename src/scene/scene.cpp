@@ -53,6 +53,10 @@ object_t *scene_t::add(const std::string& name, const object_desc_t& d)
     object_t o{.mesh = d.mesh, .material = d.material, .pos = d.pos, .scale = d.scale};
     o.orient = mat4_t::trs(vec3_t<gl::f32>(), d.rot, vec3_t<gl::f32>(1.0f));
 
+    o.prompt       = d.prompt;
+    o.on_interact  = d.on_interact;
+    o.on_collision = d.on_collision;
+
     if (d.body != body_kind_t::none) {
         const vec3_t<gl::f32>& mh = mesh_it->second.half;
         vec3_t<gl::f32> half = d.half.value_or(vec3_t<gl::f32>(mh.x * d.scale.x, mh.y * d.scale.y, mh.z * d.scale.z));
@@ -138,36 +142,133 @@ static gl::f32 ray_sphere(vec3_t<gl::f32> origin, vec3_t<gl::f32> dir, vec3_t<gl
     return t > 0.0f && t < max_dist ? t : -1.0f;
 }
 
+trigger_t *scene_t::add_trigger(const std::string& name, const trigger_t& trigger)
+{
+    auto [it, added] = triggers.emplace(name, trigger);
+    return added ? &it->second : nullptr;
+}
+
+bool scene_t::remove_trigger(const std::string& name)
+{
+    return triggers.erase(name) > 0;
+}
+
 pick_t scene_t::pick(vec3_t<gl::f32> origin, vec3_t<gl::f32> dir, gl::f32 max_dist, int ignore)
 {
     pick_t hit;
     gl::f32 best = max_dist;
-    int nearest_rigid = -1; // stays -1 if a wall or board is nearer
+    int nearest_body = -1, nearest_rigid = -1;
 
     for (size_t i = 0; i < world.bodies.size(); ++i) {
         const phys::body_t& b = world.bodies[i];
         if ((int)i == ignore || !b.enabled) continue;
         const gl::f32 t = ray_box(origin, dir, b.pos, b.half, mat4_t::identity(), best);
-        if (t > 0.0f && t < best) { best = t; nearest_rigid = -1; }
+        if (t > 0.0f && t < best) { best = t; nearest_body = (int)i; nearest_rigid = -1; }
     }
     for (size_t i = 0; i < rigids.bodies.size(); ++i) {
         const phys::rigid_t& r = rigids.bodies[i];
         if (!r.enabled) continue;
         const gl::f32 t = r.shape == phys::shape_t::sphere ?
             ray_sphere(origin, dir, r.pos, r.half.x, best) : ray_box(origin, dir, r.pos, r.half, r.orient, best);
-        if (t > 0.0f && t < best) { best = t; nearest_rigid = (int)i; }
+        if (t > 0.0f && t < best) { best = t; nearest_rigid = (int)i; nearest_body = -1; }
     }
-    if (nearest_rigid < 0) return hit;
+    if (nearest_rigid < 0 && nearest_body < 0) return hit;
 
+    // a wall or a board that is no object of its own (or the player's own body) still hides what is behind
     for (const auto& [name, o] : objects) {
-        if (o.rigid == nearest_rigid) {
-            hit.name  = name;
-            hit.dist  = best;
-            hit.point = origin + dir * best;
+        if ((nearest_rigid >= 0 && o.rigid == nearest_rigid) || (nearest_body >= 0 && o.body == nearest_body)) {
+            hit.name    = name;
+            hit.dist    = best;
+            hit.point   = origin + dir * best;
+            hit.movable = nearest_rigid >= 0;
             break;
         }
     }
     return hit;
+}
+
+bool scene_t::interact(vec3_t<gl::f32> origin, vec3_t<gl::f32> dir, gl::f32 reach, int ignore)
+{
+    const pick_t hit = pick(origin, dir, reach, ignore);
+    if (hit.name.empty()) return false;
+    const object_t *o = get(hit.name);
+    if (o == nullptr || !o->on_interact) return false;
+
+    interact_fn_t callback = o->on_interact; // the callback may remove the object
+    callback(*this, hit.name);
+    return true;
+}
+
+// pairs that start pressing on each other become events, one that merely flickers off and on doesn't
+void scene_t::_collect_touches()
+{
+    std::set<std::tuple<int, int, int>> now;
+    for (const phys::touch_t& t : rigids.touches) {
+        const auto key = std::make_tuple(t.a, (int)t.kind, t.b);
+        now.insert(key);
+        auto it = _touching.find(key);
+        if (it == _touching.end()) _events.push_back({t.a, t.kind, t.b, t.impulse});
+        _touching[key] = 0;
+    }
+    for (auto it = _touching.begin(); it != _touching.end();) {
+        if (!now.contains(it->first) && ++it->second > 6) it = _touching.erase(it);
+        else ++it;
+    }
+}
+
+void scene_t::_dispatch_events()
+{
+    // who is who, indices are not stable names
+    std::vector<const std::string *> rigid_name(rigids.bodies.size(), nullptr), body_name(world.bodies.size(), nullptr);
+    for (const auto& [name, o] : objects) {
+        if (o.rigid >= 0) rigid_name[o.rigid] = &name;
+        if (o.body  >= 0) body_name[o.body]   = &name;
+    }
+
+    // copied: callbacks are free to add and remove things
+    std::vector<std::tuple<std::string, std::string, gl::f32>> calls; // self, other, impulse
+    for (const touch_event_t& e : _events) {
+        const std::string a = rigid_name[e.a] ? *rigid_name[e.a] : "";
+        std::string b;
+        if (e.kind == phys::touch_t::rigid)       b = rigid_name[e.b] ? *rigid_name[e.b] : "";
+        else if (e.kind == phys::touch_t::fixed)  b = body_name[e.b] ? *body_name[e.b] : "";
+        else                                      b = "player";
+        if (!a.empty() && !b.empty()) {
+            calls.emplace_back(a, b, e.impulse);
+            if (e.kind != phys::touch_t::player) calls.emplace_back(b, a, e.impulse);
+        }
+    }
+    _events.clear();
+
+    for (const auto& [self, other, impulse] : calls) {
+        const object_t *o = get(self);
+        if (o == nullptr || !o->on_collision) continue;
+        collision_fn_t callback = o->on_collision;
+        callback(*this, self, other, impulse);
+    }
+
+    // triggers: who is inside now, compared with who was
+    std::vector<std::string> trigger_names;
+    for (const auto& [tname, _trig] : triggers) trigger_names.push_back(tname);
+    for (const std::string& tname : trigger_names) {
+        auto trig_it = triggers.find(tname); // callbacks of earlier triggers may have removed this one
+        if (trig_it == triggers.end()) continue;
+        trigger_t& trig = trig_it->second;
+        std::set<std::string> now;
+        for (const auto& [name, o] : objects) {
+            if (o.rigid < 0 || !rigids.bodies[o.rigid].enabled) continue;
+            const vec3_t<gl::f32> d = o.pos - trig.pos;
+            if (std::fabs(d.x) > trig.half.x || std::fabs(d.y) > trig.half.y || std::fabs(d.z) > trig.half.z) continue;
+            if (trig.filter && !trig.filter(name, o)) continue;
+            now.insert(name);
+        }
+        const std::set<std::string> before = trig.inside;
+        trig.inside = now;
+        const std::string trigger_name = tname;
+        const trigger_fn_t on_enter = trig.on_enter, on_exit = trig.on_exit;
+        for (const std::string& n : now)    if (!before.contains(n) && on_enter) on_enter(*this, trigger_name, n);
+        for (const std::string& n : before) if (!now.contains(n)    && on_exit)  on_exit(*this, trigger_name, n);
+    }
 }
 
 void scene_t::update(gl::f32 dt)
@@ -177,6 +278,7 @@ void scene_t::update(gl::f32 dt)
     while (_step_acc >= world.step_dt) {
         world.step(world.step_dt);
         rigids.step(world.step_dt, world, player_body);
+        _collect_touches();
         _step_acc -= world.step_dt;
     }
 
@@ -186,6 +288,8 @@ void scene_t::update(gl::f32 dt)
         o.pos    = r.pos;
         o.orient = r.orient;
     }
+
+    _dispatch_events();
 }
 
 bool scene_t::draw(gl::f32 aspect)

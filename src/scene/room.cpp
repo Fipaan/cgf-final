@@ -64,6 +64,20 @@ void room::add_materials(scene_t& scene)
         .shininess = 200.0f,
     });
 
+    // lit up by interacting with it
+    scene.add_material("active glow", material_t{
+        .ambient   = color_t(0.95f, 0.80f, 0.30f, 1.0f),
+        .diffuse   = color_t(1.00f, 0.90f, 0.45f, 1.0f),
+        .specular  = color_t(1.00f, 1.00f, 0.80f, 1.0f),
+        .shininess = 30.0f,
+    });
+    scene.add_material("steel", material_t{
+        .ambient   = color_t(0.20f, 0.22f, 0.25f, 1.0f),
+        .diffuse   = color_t(0.45f, 0.50f, 0.56f, 1.0f),
+        .specular  = color_t(0.70f, 0.70f, 0.75f, 1.0f),
+        .shininess = 60.0f,
+    });
+
     // room
     scene.add_material("wall", material_t{
         .ambient   = color_t(0.30f, 0.29f, 0.26f, 1.0f),
@@ -175,4 +189,24 @@ void room::build_props(scene_t& scene)
         .pos = {0, 2.5f, 0}, .scale = vec3_t<gl::f32>(1.0f),
         .body = body_kind_t::dynamic,
     });
+}
+
+trigger_t *room::add_can(scene_t& scene, const std::string& name, vec3_t<gl::f32> floor_centre, vec2_t<gl::f32> inner_half, gl::f32 height)
+{
+    const gl::f32 w  = 0.04f; // half thickness of the walls
+    const gl::f32 cx = floor_centre.x, cz = floor_centre.z;
+    const gl::f32 y0 = floor_centre.y;
+    const gl::f32 wy = y0 + 2.0f * w + height / 2.0f; // middle of the walls
+    const gl::f32 ix = inner_half.x, iz = inner_half.y;
+
+    add_box(scene, name + "/bottom", "steel", {cx, y0 + w, cz}, {ix + 2 * w, w, iz + 2 * w});
+    add_box(scene, name + "/wall_px", "steel", {cx + ix + w, wy, cz}, {w, height / 2.0f, iz + 2 * w});
+    add_box(scene, name + "/wall_nx", "steel", {cx - ix - w, wy, cz}, {w, height / 2.0f, iz + 2 * w});
+    add_box(scene, name + "/wall_pz", "steel", {cx, wy, cz + iz + w}, {ix, height / 2.0f, w});
+    add_box(scene, name + "/wall_nz", "steel", {cx, wy, cz - iz - w}, {ix, height / 2.0f, w});
+
+    trigger_t trigger;
+    trigger.pos  = vec3_t<gl::f32>(cx, wy, cz);
+    trigger.half = vec3_t<gl::f32>(ix, height / 2.0f, iz);
+    return scene.add_trigger(name, trigger);
 }

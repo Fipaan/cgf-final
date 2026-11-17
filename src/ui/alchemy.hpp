@@ -54,7 +54,7 @@ namespace alchemy {
 
         void menu();
         void settings();
-        void controls();
+    void controls();
         void hud();
         void paused();
         void codex();

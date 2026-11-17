@@ -25,9 +25,9 @@ void drag_t::input(gl::input_t& input, int ignore)
 {
     const camera_t& cam = scene.cam;
     pick_t pick = scene.pick(cam.pos, cam.forward(), DRAG_REACH, ignore);
-    hover = pick.name;
+    hover = pick.movable ? pick.name : "";
 
-    if (!holding() && input.mouse_hit(gl::mouse_left) && !pick.name.empty()) {
+    if (!holding() && input.mouse_hit(gl::mouse_left) && pick.movable) {
         phys::rigid_t *r = scene.rigid_of(*scene.get(pick.name));
         held     = pick.name;
         r->held  = true;

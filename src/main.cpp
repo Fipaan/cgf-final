@@ -15,6 +15,8 @@
 #include <scene/drag.hpp>
 #include <scene/room.hpp>
 
+constexpr gl::f32 INTERACT_REACH = 3.0f; // how far E reaches
+
 struct app_t {
     gl::ctx_t&    ctx;
     gl::draw2d_t  draw2d;
@@ -28,6 +30,10 @@ struct app_t {
 
     // `M` cycles the loaded model through `room::prop_materials`
     size_t model_material = 0;
+
+    // what E would do for the object under the crosshair, empty = nothing
+    std::string interact_prompt;
+    int cans_filled = 0;
 
     bool    hud_visible   = true;
     gl::f32 hud_text_size = 20.0f;
@@ -60,6 +66,7 @@ struct app_t {
         room::build_shelves(scene);
         room::build_props(scene);
         player.spawn(vec3_t<gl::f32>(0, 0, 4));
+        setup_interactions();
 
         if (!draw2d.init()) return false;
         FT_Long face_index = 0;
@@ -70,6 +77,43 @@ struct app_t {
         glEnable(GL_DEPTH_TEST);
         ctx.clear_color(0x181818FF);
         return true;
+    }
+
+    // The three ways objects can react, as an example: E on the spheres, a trigger over the can, a collision on the gong.
+    void setup_interactions()
+    {
+        // E: lights the sphere up or off again
+        for (auto& [name, o] : scene.objects) {
+            if (o.mesh != "sphere" || o.rigid < 0) continue;
+            o.prompt = "Activate";
+            o.on_interact = [this, original = o.material](scene_t& s, const std::string& self) {
+                object_t *o = s.get(self);
+                const bool on = o->material != "active glow";
+                o->material = on ? "active glow" : original;
+                alchemy_ui.set_status(on ? "The sphere hums and lights up." : "The sphere goes dark.");
+            };
+        }
+
+        // trigger: whatever lands in the can
+        trigger_t *can = room::add_can(scene, "can", vec3_t<gl::f32>(3.5f, 0.0f, 2.5f), vec2_t<gl::f32>(0.45f, 0.45f), 0.9f);
+        can->on_enter = [this](scene_t&, const std::string&, const std::string& object) {
+            ++cans_filled;
+            alchemy_ui.set_status(std::format("{} fell into the can ({} so far).", object, cans_filled));
+        };
+        can->on_exit = [this](scene_t&, const std::string&, const std::string& object) {
+            --cans_filled;
+            alchemy_ui.set_status(std::format("{} left the can.", object));
+        };
+
+        // collision: a gong on the back wall, hit it with something
+        scene.add("gong", {
+            .mesh = "cube", .material = "gold metal", .pos = {0.0f, 2.2f, -ROOM_Z + 0.07f}, .scale = {0.8f, 0.8f, 0.06f},
+            .body = body_kind_t::fixed,
+        });
+        scene.get("gong")->on_collision = [this](scene_t&, const std::string&, const std::string& other, gl::f32 impulse) {
+            if (impulse < 0.5f) return; // a touch is not a hit
+            alchemy_ui.set_status(std::format("DONG! {} hit the gong.", other));
+        };
     }
 
     void input()
@@ -85,6 +129,17 @@ struct app_t {
         player.input(in, ctx.last_frame, !drag.rotating);
 
         if (in.key_hit(gl::kb_key_t::f1)) hud_visible = !hud_visible;
+
+        // E: use what is under the crosshair
+        const pick_t look = scene.pick(scene.cam.pos, scene.cam.forward(), INTERACT_REACH, (int)player.body);
+        interact_prompt.clear();
+        if (!drag.holding() && !look.name.empty()) {
+            const object_t *o = scene.get(look.name);
+            if (o != nullptr && o->on_interact) interact_prompt = o->prompt.empty() ? "Use" : o->prompt;
+        }
+        if (in.key_hit(gl::kb_key_t::e) && !interact_prompt.empty()) {
+            scene.interact(scene.cam.pos, scene.cam.forward(), INTERACT_REACH, (int)player.body);
+        }
 
         // light 0
         const gl::f32 k = 1.5f * ctx.last_frame;
@@ -144,13 +199,19 @@ struct app_t {
     {
         const gl::f32 cx = gui.width / 2.0f, cy = gui.height / 2.0f;
         const gl::f32 s  = gui.scale;
-        const color_t color = drag.holding()      ? color_t(0.35f, 0.85f, 0.55f, 1.0f) :
-                              !drag.hover.empty() ? color_t(0.84f, 0.64f, 0.35f, 1.0f) :
-                                                    color_t(1.0f, 1.0f, 1.0f, 1.0f);
+        const color_t color = drag.holding()            ? color_t(0.35f, 0.85f, 0.55f, 1.0f) :
+                              !interact_prompt.empty()  ? color_t(0.45f, 0.80f, 1.00f, 1.0f) :
+                              !drag.hover.empty()       ? color_t(0.84f, 0.64f, 0.35f, 1.0f) :
+                                                          color_t(1.0f, 1.0f, 1.0f, 1.0f);
 
         ctx.begin_overlay();
         gui.fill({cx - 8.0f * s, cy - 1.0f * s, 16.0f * s, 2.0f * s}, color);
         gui.fill({cx - 1.0f * s, cy - 8.0f * s, 2.0f * s, 16.0f * s}, color);
+        if (!interact_prompt.empty()) {
+            const std::string str = "[E] " + interact_prompt;
+            const gl::f32 size = 18.0f * s;
+            gui.label(str, cx - text.measure(str, size).x / 2.0f, cy + 22.0f * s, size, color);
+        }
         ctx.end_overlay();
     }
 
@@ -161,7 +222,7 @@ struct app_t {
 
         alchemy_ui.update();
         if (alchemy_ui.game_interactive()) input();
-        else drag.release();
+        else { drag.release(); interact_prompt.clear(); }
 
         drag.update(ctx.input, ctx.last_frame);
         scene.update(ctx.last_frame);

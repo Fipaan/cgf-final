@@ -40,6 +40,7 @@ static const std::vector<control_section_t> control_sections = {
         {"HOLD LMB",  "Grab and drag an object, release to throw it"},
         {"LMB + RMB", "Rotate the held object with the mouse"},
         {"WALK INTO", "Push objects around"},
+        {"E",         "Use the object under the crosshair"},
     }},
     {"GENERAL", {
         {"CLICK",     "Capture the mouse"},

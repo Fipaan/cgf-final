@@ -47,8 +47,18 @@ namespace phys {
         bool    touching  = false;
     };
 
+    // a pair that pressed on each other during the last `step`
+    struct touch_t {
+        enum kind_t { rigid, fixed, player };
+        int     a;       // rigid body
+        kind_t  kind;    // what it touched
+        int     b;       // rigid: index into `bodies`, fixed: index into the AABB world, player: -1
+        gl::f32 impulse; // normal impulse the solver needed, how hard the touch was
+    };
+
     struct rigid_world_t {
         std::vector<rigid_t> bodies;
+        std::vector<touch_t> touches; // rebuilt by every `step`
         vec3_t<gl::f32> gravity = vec3_t<gl::f32>(0.0f, -9.81f, 0.0f);
         int iterations = 10;
 
@@ -241,6 +251,7 @@ namespace phys::detail {
     struct contact_t {
         side_t a, b;
         int ia = -1, ib = -1;  // rigid index, `PLAYER` or `STATIC`
+        int sb = -1;           // with `STATIC`: index into the AABB world
         v3  ra, rb, normal, t1, t2;
         f32 depth = 0.0f, mu = 0.0f, bias = 0.0f;
         f32 mass_n = 0.0f, mass_t1 = 0.0f, mass_t2 = 0.0f;
@@ -379,17 +390,17 @@ inline void phys::rigid_world_t::step(gl::f32 dt, world_t& statics, int player)
     std::vector<contact_t> contacts;
     std::vector<hit_t> hits;
 
-    auto add_contacts = [&](int ia, int ib, const view_t& A, const view_t& B, const side_t& sa, const side_t& sb, f32 mu, f32 e) {
+    auto add_contacts = [&](int ia, int ib, int sb, const view_t& A, const view_t& B, const side_t& sa, const side_t& sb_, f32 mu, f32 e) {
         hits.clear();
         collide(A, B, hits);
         for (const hit_t& h : hits) {
             contact_t c;
-            c.a = sa; c.b = sb; c.ia = ia; c.ib = ib;
+            c.a = sa; c.b = sb_; c.ia = ia; c.ib = ib; c.sb = sb;
             c.normal = h.normal;
             c.depth  = h.depth;
             c.mu     = mu;
             c.ra = h.point - sa.pos;
-            c.rb = h.point - sb.pos;
+            c.rb = h.point - sb_.pos;
             c.t1 = vec3::norm(vec3::cross(c.normal, std::fabs(c.normal.x) > 0.9f ? v3(0, 1, 0) : v3(1, 0, 0)));
             c.t2 = vec3::cross(c.normal, c.t1);
             c.mass_n  = effective_mass(c, c.normal);
@@ -411,20 +422,21 @@ inline void phys::rigid_world_t::step(gl::f32 dt, world_t& statics, int player)
         const side_t sr = side_of(r);
 
         // static boxes
-        for (const body_t& s : statics.bodies) {
+        for (size_t j = 0; j < statics.bodies.size(); ++j) {
+            const body_t& s = statics.bodies[j];
             if (!s.is_static || !s.enabled) continue;
-            add_contacts((int)i, STATIC, vr, view_of(s), sr, side_t{}, r.friction, r.restitution);
+            add_contacts((int)i, STATIC, (int)j, vr, view_of(s), sr, side_t{}, r.friction, r.restitution);
         }
         // the player
         if (player >= 0 && statics.bodies[player].enabled) {
             body_t& p = statics.bodies[player];
-            add_contacts((int)i, PLAYER, vr, view_of(p), sr, side_of(p), r.friction, r.restitution);
+            add_contacts((int)i, PLAYER, -1, vr, view_of(p), sr, side_of(p), r.friction, r.restitution);
         }
         // other rigid bodies
         for (size_t j = i + 1; j < bodies.size(); ++j) {
             rigid_t& o = bodies[j];
             if (!o.enabled) continue;
-            add_contacts((int)i, (int)j, vr, view_of(o), sr, side_of(o),
+            add_contacts((int)i, (int)j, -1, vr, view_of(o), sr, side_of(o),
                          std::sqrt(r.friction * o.friction), std::max(r.restitution, o.restitution));
         }
     }
@@ -497,6 +509,15 @@ inline void phys::rigid_world_t::step(gl::f32 dt, world_t& statics, int player)
         }
     }
 
+    touches.clear();
+    for (const contact_t& c : contacts) {
+        if (c.acc_n <= 0.0f) continue;
+        const touch_t::kind_t kind = c.ib >= 0 ? touch_t::rigid : c.ib == STATIC ? touch_t::fixed : touch_t::player;
+        const int other = c.ib >= 0 ? c.ib : c.ib == STATIC ? c.sb : -1;
+        auto same = std::find_if(touches.begin(), touches.end(), [&](const touch_t& t) { return t.a == c.ia && t.kind == kind && t.b == other; });
+        if (same == touches.end()) touches.push_back({c.ia, kind, other, c.acc_n});
+        else same->impulse = std::max(same->impulse, c.acc_n);
+    }
     for (const contact_t& c : contacts) {
         if (c.acc_n <= 0.0f) continue;
         if (c.ia >= 0) bodies[c.ia].touching = true;
