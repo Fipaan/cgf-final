@@ -1,0 +1,2 @@
+src/core/*/private/*.h linguist-vendored=true
+src/core/glad/glad.c linguist-vendored=true
