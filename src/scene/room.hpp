@@ -38,6 +38,10 @@ namespace room {
     // materials from `add_materials` that dynamic props and the loaded model cycle through
     extern const std::vector<std::string> prop_materials;
 
+    // An open box (a can, a bin) made of fixed walls with a trigger of the same name over its inside, so
+    // `scene.triggers[name]` tells what fell in. `inner_half` is the inner half size (x, z), `height` the inner height.
+    trigger_t *add_can(scene_t& scene, const std::string& name, vec3_t<gl::f32> floor_centre, vec2_t<gl::f32> inner_half, gl::f32 height);
+
     // needs meshes "cube", "sphere" and "model" in the scene
     void add_materials(scene_t& scene);
     // static box, `half` is both the cube scale and the collider

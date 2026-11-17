@@ -25,7 +25,7 @@ alchemy_ui.draw();
 ```
 */
 namespace alchemy {
-    enum class screen_t { main_menu, settings, game, pause, codex };
+    enum class screen_t { main_menu, settings, controls, game, pause, codex };
 
     // TODO: text is too small
     struct ui_t {
@@ -54,6 +54,7 @@ namespace alchemy {
 
         void menu();
         void settings();
+    void controls();
         void hud();
         void paused();
         void codex();

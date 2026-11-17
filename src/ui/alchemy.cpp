@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <utility>
+#include <vector>
 
 constexpr color_t alchemy_bg    (0.055f, 0.063f, 0.083f, 1.0f);
 constexpr color_t alchemy_panel (0.095f, 0.112f, 0.143f, 1.0f);
@@ -19,6 +20,39 @@ constexpr color_t alchemy_grey (0.32f, 0.30f, 0.30f, 1.0f);
 
 constexpr int codex_per_page = 6;
 constexpr int codex_pages    = (int)((alchemy::recipes.size() + codex_per_page - 1) / codex_per_page);
+
+struct control_t {
+    const char *keys, *action;
+};
+struct control_section_t {
+    const char *title;
+    std::vector<control_t> controls;
+};
+static const std::vector<control_section_t> control_sections = {
+    {"MOVEMENT", {
+        {"W A S D",   "Move"},
+        {"SHIFT",     "Sprint"},
+        {"SPACE",     "Jump (first-person) / fly up"},
+        {"CTRL",      "Fly down"},
+        {"F2",        "Switch between fly and first-person"},
+    }},
+    {"OBJECTS", {
+        {"HOLD LMB",  "Grab and drag an object, release to throw it"},
+        {"LMB + RMB", "Rotate the held object with the mouse"},
+        {"WALK INTO", "Push objects around"},
+        {"E",         "Use the object under the crosshair"},
+    }},
+    {"GENERAL", {
+        {"CLICK",     "Capture the mouse"},
+        {"ESC",       "Pause"},
+        {"TAB",       "Recipe book"},
+        {"1  2  3",   "Shading: normals / Gouraud / Phong"},
+        {"M",         "Cycle the model material"},
+        {"ARROWS  , .", "Move the light"},
+        {"F1",        "Hide debug info"},
+        {"X  C",      "Debug text size"},
+    }},
+};
 
 static std::filesystem::path discoveries_path()
 {
@@ -45,7 +79,7 @@ bool alchemy::ui_t::init()
 bool alchemy::ui_t::game_visible() const
 {
     return screen == screen_t::game || screen == screen_t::pause ||
-           (screen == screen_t::settings && return_screen == screen_t::pause) ||
+           ((screen == screen_t::settings || screen == screen_t::controls) && return_screen == screen_t::pause) ||
            screen == screen_t::codex;
 }
 
@@ -88,6 +122,7 @@ void alchemy::ui_t::update()
             input.set_mouse_capture(true);
         }
         else if (screen == screen_t::settings) screen = return_screen;
+        else if (screen == screen_t::controls) screen = screen_t::settings;
         else if (screen == screen_t::codex)    screen = codex_return;
     }
     if (input.key_hit(gl::kb_key_t::tab)) {
@@ -106,6 +141,7 @@ void alchemy::ui_t::draw()
     switch (screen) {
     case screen_t::main_menu: menu();     break;
     case screen_t::settings:  settings(); break;
+    case screen_t::controls:  controls(); break;
     case screen_t::game:      hud();      break;
     case screen_t::pause:     paused();   break;
     case screen_t::codex:     codex();    break;
@@ -162,9 +198,40 @@ void alchemy::ui_t::settings()
     }
 
     gui.label("CONTROLS", x + 44.0f * s, y + 353.0f * s, 19.0f * s, alchemy_accent);
-    gui.label("ESC - Pause   TAB - Recipe book", x + 44.0f * s, y + 391.0f * s, 17.0f * s, alchemy_muted);
-    if (gui.button({x + 42.0f * s, y + 462.0f * s, 456.0f * s, 55.0f * s}, "BACK", alchemy_grey, alchemy_cream)) {
+    if (gui.button({x + 42.0f * s, y + 392.0f * s, 456.0f * s, 60.0f * s}, "SHOW CONTROLS", alchemy_tile, alchemy_cream)) {
+        screen = screen_t::controls;
+    }
+    if (gui.button({x + 42.0f * s, y + 472.0f * s, 456.0f * s, 55.0f * s}, "BACK", alchemy_grey, alchemy_cream)) {
         screen = return_screen;
+    }
+}
+
+void alchemy::ui_t::controls()
+{
+    const gl::f32 s = gui.scale;
+    const gl::f32 w = 700.0f * s, h = 790.0f * s;
+    const gl::f32 x = (gui.width  - w) * 0.5f;
+    const gl::f32 y = (gui.height - h) * 0.5f;
+
+    if (return_screen == screen_t::main_menu) gui.fill({0, 0, gui.width, gui.height}, alchemy_bg);
+    gui.fill({x, y, w, h}, alchemy_panel);
+    gui.fill({x, y, w, 5.0f * s}, alchemy_accent);
+    gui.label("CONTROLS", x + 44.0f * s, y + 34.0f * s, 36.0f * s, alchemy_cream);
+
+    gl::f32 row_y = y + 98.0f * s;
+    for (const control_section_t& section : control_sections) {
+        gui.label(section.title, x + 44.0f * s, row_y, 17.0f * s, alchemy_accent);
+        row_y += 30.0f * s;
+        for (const control_t& control : section.controls) {
+            gui.label(control.keys,   x + 44.0f * s,  row_y, 16.0f * s, alchemy_cream);
+            gui.label(control.action, x + 210.0f * s, row_y, 16.0f * s, alchemy_muted);
+            row_y += 26.0f * s;
+        }
+        row_y += 14.0f * s;
+    }
+
+    if (gui.button({x + 44.0f * s, y + h - 82.0f * s, w - 88.0f * s, 54.0f * s}, "BACK", alchemy_grey, alchemy_cream)) {
+        screen = screen_t::settings;
     }
 }
 

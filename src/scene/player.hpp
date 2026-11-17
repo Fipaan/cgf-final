@@ -15,6 +15,7 @@ constexpr gl::f32 WALK_SPEED  = 5.0f;
 constexpr gl::f32 FLY_SPEED   = 10.0f;
 constexpr gl::f32 SPRINT_MULT = 2.0f;
 constexpr gl::f32 JUMP_SPEED  = 5.5f;
+constexpr gl::f32 PLAYER_MASS = 70.0f; // pushes objects around
 
 enum class cam_mode_t { fly, fps };
 
@@ -40,8 +41,8 @@ struct player_t {
     void spawn(vec3_t<gl::f32> feet);
     void set_mode(cam_mode_t mode);
 
-    // mouse look (if the mouse is captured), mode switch and movement
-    void input(gl::input_t& input, gl::f32 dt);
+    // mouse look (if the mouse is captured and `look`), mode switch and movement
+    void input(gl::input_t& input, gl::f32 dt, bool look = true);
     // call after `scene_t::update`, puts the camera on the body
     void update();
 
