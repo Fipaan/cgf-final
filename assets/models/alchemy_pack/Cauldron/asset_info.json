@@ -1,0 +1,23 @@
+{
+  "name": "Cauldron",
+  "triangles": 18144,
+  "mesh_objects": 61,
+  "dimensions_m": [
+    1.194000005722046,
+    0.8899999856948853,
+    0.7450000047683716
+  ],
+  "bounds_min": [
+    -0.597000002861023,
+    -0.4559999704360962,
+    0.0
+  ],
+  "bounds_max": [
+    0.597000002861023,
+    0.43400001525878906,
+    0.7450000047683716
+  ],
+  "obj_axes": "Z up, -Y forward",
+  "glb_axes": "glTF standard Y up",
+  "root": "Cauldron_Root"
+}
