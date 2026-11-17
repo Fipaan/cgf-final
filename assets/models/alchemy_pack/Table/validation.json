@@ -1,0 +1,37 @@
+{
+  "asset": "Table",
+  "exports": [
+    {
+      "format": "obj",
+      "pass": true,
+      "triangles": 5336,
+      "dimensions_m": [
+        1.8500001430511475,
+        0.9440001845359802,
+        0.8241659998893738
+      ],
+      "invalid_vertices": 0,
+      "zero_area_faces": 0,
+      "meshes_without_uv": 0,
+      "meshes_without_material": 0,
+      "missing_textures": [],
+      "material_count": 4
+    },
+    {
+      "format": "glb",
+      "pass": true,
+      "triangles": 5336,
+      "dimensions_m": [
+        1.850000023841858,
+        0.9440000057220459,
+        0.8241659998893738
+      ],
+      "invalid_vertices": 0,
+      "zero_area_faces": 0,
+      "meshes_without_uv": 0,
+      "meshes_without_material": 0,
+      "missing_textures": [],
+      "material_count": 4
+    }
+  ]
+}

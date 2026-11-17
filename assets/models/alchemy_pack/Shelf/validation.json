@@ -1,0 +1,37 @@
+{
+  "asset": "Shelf",
+  "exports": [
+    {
+      "format": "obj",
+      "pass": true,
+      "triangles": 2944,
+      "dimensions_m": [
+        1.350000023841858,
+        0.3500001132488251,
+        0.435850010253489
+      ],
+      "invalid_vertices": 0,
+      "zero_area_faces": 0,
+      "meshes_without_uv": 0,
+      "meshes_without_material": 0,
+      "missing_textures": [],
+      "material_count": 3
+    },
+    {
+      "format": "glb",
+      "pass": true,
+      "triangles": 2944,
+      "dimensions_m": [
+        1.350000023841858,
+        0.3499999940395355,
+        0.43584997951984406
+      ],
+      "invalid_vertices": 0,
+      "zero_area_faces": 0,
+      "meshes_without_uv": 0,
+      "meshes_without_material": 0,
+      "missing_textures": [],
+      "material_count": 3
+    }
+  ]
+}
