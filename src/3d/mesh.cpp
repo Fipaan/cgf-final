@@ -99,6 +99,17 @@ void mesh_t::compute_normals()
     for (auto& n : vertex_normals) n = vec3::norm(n);
 }
 
+void mesh_t::compute_face_normals()
+{
+    face_normals.assign(tri_count(), vec3_t<gl::f32>());
+    for (size_t t = 0; t < tri_count(); ++t) {
+        const vec3_t<gl::f32>& a = vertices[indices[3*t + 0]];
+        const vec3_t<gl::f32>& b = vertices[indices[3*t + 1]];
+        const vec3_t<gl::f32>& c = vertices[indices[3*t + 2]];
+        face_normals[t] = vec3::norm(vec3::cross(b - a, c - a));
+    }
+}
+
 size_t mesh_t::tri_count() const
 {
     return indices.size() / 3;

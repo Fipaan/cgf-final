@@ -1,10 +1,12 @@
 #include <algorithm>
 #include <format>
 #include <string>
+#include <vector>
 
 #include <core/log.hpp>
 #include <core/gl/first.hpp>
 #include <3d/mesh.hpp>
+#include <3d/obj.hpp>
 #include <gl/ctx.hpp>
 #include <gl/draw.hpp>
 #include <gl/text.hpp>
@@ -66,6 +68,7 @@ struct app_t {
         room::build_shelves(scene);
         room::build_props(scene);
         player.spawn(vec3_t<gl::f32>(0, 0, 4));
+        build_gallery();
         setup_interactions();
 
         if (!draw2d.init()) return false;
@@ -77,6 +80,34 @@ struct app_t {
         glEnable(GL_DEPTH_TEST);
         ctx.clear_color(0x181818FF);
         return true;
+    }
+
+    // The models of the alchemy pack in a row on the roof, side by side with a gap, seen from the fly mode (F2).
+    void build_gallery()
+    {
+        const char *names[] = {"Candle", "Cauldron", "Chair", "Door", "Potion_Blue", "Potion_Green", "Potion_Purple", "Potion_Red", "Shelf", "Table"};
+        const gl::f32 gap  = 0.8f;
+        const gl::f32 roof = ROOM_H + 2.0f * WALL_T;
+
+        std::vector<obj_model_t> models;
+        std::vector<std::string> loaded;
+        gl::f32 total = -gap;
+        for (const char *name : names) {
+            obj_model_t model;
+            // these files have Z up
+            if (!model.load(std::format("./assets/models/alchemy_pack/{0}/{0}.obj", name).c_str(), true)) continue;
+            total += gap + model.bounds_max.x - model.bounds_min.x;
+            models.push_back(std::move(model));
+            loaded.push_back(name);
+        }
+
+        gl::f32 x = -total / 2.0f;
+        for (size_t i = 0; i < models.size(); ++i) {
+            const obj_model_t& m = models[i];
+            // base on the roof, middle of the row's depth at z = 0
+            scene.add_model(loaded[i], m, vec3_t<gl::f32>(x - m.bounds_min.x, roof - m.bounds_min.y, -(m.bounds_min.z + m.bounds_max.z) / 2.0f));
+            x += m.bounds_max.x - m.bounds_min.x + gap;
+        }
     }
 
     // The three ways objects can react, as an example: E on the spheres, a trigger over the can, a collision on the gong.

@@ -44,6 +44,24 @@ bool scene_t::add_material(const std::string& name, const material_t& material)
     return materials.emplace(name, material).second;
 }
 
+bool scene_t::add_model(const std::string& name, const obj_model_t& model, vec3_t<gl::f32> pos, gl::f32 scale)
+{
+    for (const obj_part_t& part : model.parts) {
+        const obj_material_t& m = part.material;
+        const std::string key = name + "/" + m.name;
+
+        if (!add_mesh(key, part.mesh)) return false;
+        add_material(key, material_t{
+            .ambient   = m.diffuse,
+            .diffuse   = m.diffuse,
+            .specular  = m.specular,
+            .shininess = std::clamp(m.shininess, 1.0f, 128.0f),
+        });
+        if (add(key, {.mesh = key, .material = key, .pos = pos, .scale = vec3_t<gl::f32>(scale)}) == nullptr) return false;
+    }
+    return true;
+}
+
 object_t *scene_t::add(const std::string& name, const object_desc_t& d)
 {
     if (objects.contains(name)) return nullptr;

@@ -18,6 +18,7 @@
 #include <2d/math.hpp>
 #include <3d/math.hpp>
 #include <3d/mesh.hpp>
+#include <3d/obj.hpp>
 #include <3d/camera.hpp>
 #include <3d/physics.hpp>
 #include <3d/rigid.hpp>
@@ -148,6 +149,12 @@ struct scene_t {
     // uploads the mesh, normals must already be computed
     bool add_mesh(const std::string& name, const mesh_t& mesh);
     bool add_material(const std::string& name, const material_t& material);
+
+    // One visual object per material of the model, each named "<name>/<material>" (with the mesh and the
+    // material added under the same name), no colliders. `pos` is where the origin of the model goes.
+    // The ambient colour is the diffuse one: exported .mtl files have a grey `Ka` that would wash colours out.
+    // false if one of the names is taken.
+    bool add_model(const std::string& name, const obj_model_t& model, vec3_t<gl::f32> pos, gl::f32 scale = 1.0f);
 
     // nullptr if `name` is taken or the mesh / material is unknown
     object_t *add(const std::string& name, const object_desc_t& desc);

@@ -20,6 +20,7 @@ struct mesh_t {
     bool load_smf(const char *path);
     void norm(); // centre bbox at origin, max radius = 1
     void compute_normals();
+    void compute_face_normals(); // only `face_normals`, `vertex_normals` are left as they are
     size_t tri_count() const;
 
     // primitives, normals already computed
