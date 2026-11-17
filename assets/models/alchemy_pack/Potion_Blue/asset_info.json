@@ -1,0 +1,23 @@
+{
+  "name": "Potion_Blue",
+  "triangles": 3900,
+  "mesh_objects": 10,
+  "dimensions_m": [
+    0.1379999965429306,
+    0.144914910197258,
+    0.4100000262260437
+  ],
+  "bounds_min": [
+    -0.0689999982714653,
+    -0.0759149119257927,
+    0.014999999664723873
+  ],
+  "bounds_max": [
+    0.0689999982714653,
+    0.0689999982714653,
+    0.42500001192092896
+  ],
+  "obj_axes": "Z up, -Y forward",
+  "glb_axes": "glTF standard Y up",
+  "root": "Potion_Blue_Root"
+}

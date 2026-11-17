@@ -1,0 +1,23 @@
+{
+  "name": "Potion_Purple",
+  "triangles": 4556,
+  "mesh_objects": 15,
+  "dimensions_m": [
+    0.22291499376296997,
+    0.22300970554351807,
+    0.3959999680519104
+  ],
+  "bounds_min": [
+    -0.11145749688148499,
+    -0.11155220121145248,
+    0.019999999552965164
+  ],
+  "bounds_max": [
+    0.11145749688148499,
+    0.11145749688148499,
+    0.41599997878074646
+  ],
+  "obj_axes": "Z up, -Y forward",
+  "glb_axes": "glTF standard Y up",
+  "root": "Potion_Purple_Root"
+}
