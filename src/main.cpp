@@ -30,12 +30,10 @@ struct app_t {
     player_t player;
     drag_t   drag;
 
-    // `M` cycles the loaded model through `room::prop_materials`
-    size_t model_material = 0;
-
     // what E would do for the object under the crosshair, empty = nothing
     std::string interact_prompt;
-    int cans_filled = 0;
+    trigger_t *cauldron = nullptr; // over the inside of the bowl
+    int in_cauldron = 0;
 
     bool    hud_visible   = true;
     gl::f32 hud_text_size = 20.0f;
@@ -50,25 +48,20 @@ struct app_t {
         drag(scene)
     {}
 
-    bool init(const char *smf_path)
+    bool init()
     {
-        mesh_t mesh; // loaded model
-        if (!mesh.load_smf(smf_path)) return false;
-        mesh.norm();
-        mesh.compute_normals();
-
         if (!scene.init("shaders/mesh.vert", "shaders/mesh.frag")) return false;
-        if (!scene.add_mesh("model",  mesh))             return false;
-        if (!scene.add_mesh("cube",   mesh_t::cube()))   return false;
-        if (!scene.add_mesh("sphere", mesh_t::sphere())) return false;
-        if (!scene.add_mesh("plane",  mesh_t::plane()))  return false;
+        if (!scene.add_mesh("cube", mesh_t::cube())) return false;
 
-        room::add_materials(scene);
-        room::build_room(scene);
-        room::build_shelves(scene);
-        room::build_props(scene);
-        player.spawn(vec3_t<gl::f32>(0, 0, 4));
-        build_gallery();
+        // the models of the lab, then the lab itself
+        for (const std::string& name : room::model_names) {
+            obj_model_t model;
+            // these files have Z up
+            if (!model.load(std::format("./assets/models/alchemy_pack/{0}/{0}.obj", name).c_str(), true)) return false;
+            if (!scene.add_model(name, model)) return false;
+        }
+        cauldron = room::build_lab(scene);
+        player.spawn(vec3_t<gl::f32>(0, 0, 4.5f));
         setup_interactions();
 
         if (!draw2d.init()) return false;
@@ -78,73 +71,50 @@ struct app_t {
         ctx.set_vsync(true);
 
         glEnable(GL_DEPTH_TEST);
-        ctx.clear_color(0x181818FF);
+        ctx.clear_color(0x0D0B11FF);
         return true;
     }
 
-    // The models of the alchemy pack in a row on the roof, side by side with a gap, seen from the fly mode (F2).
-    void build_gallery()
-    {
-        const char *names[] = {"Candle", "Cauldron", "Chair", "Door", "Potion_Blue", "Potion_Green", "Potion_Purple", "Potion_Red", "Shelf", "Table"};
-        const gl::f32 gap  = 0.8f;
-        const gl::f32 roof = ROOM_H + 2.0f * WALL_T;
-
-        std::vector<obj_model_t> models;
-        std::vector<std::string> loaded;
-        gl::f32 total = -gap;
-        for (const char *name : names) {
-            obj_model_t model;
-            // these files have Z up
-            if (!model.load(std::format("./assets/models/alchemy_pack/{0}/{0}.obj", name).c_str(), true)) continue;
-            total += gap + model.bounds_max.x - model.bounds_min.x;
-            models.push_back(std::move(model));
-            loaded.push_back(name);
-        }
-
-        gl::f32 x = -total / 2.0f;
-        for (size_t i = 0; i < models.size(); ++i) {
-            const obj_model_t& m = models[i];
-            // base on the roof, middle of the row's depth at z = 0
-            scene.add_model(loaded[i], m, vec3_t<gl::f32>(x - m.bounds_min.x, roof - m.bounds_min.y, -(m.bounds_min.z + m.bounds_max.z) / 2.0f));
-            x += m.bounds_max.x - m.bounds_min.x + gap;
-        }
-    }
-
-    // The three ways objects can react, as an example: E on the spheres, a trigger over the can, a collision on the gong.
+    // How objects of the lab react, three ways: E (candles, the door), a trigger (the cauldron),
+    // a collision (the door).
     void setup_interactions()
     {
-        // E: lights the sphere up or off again
+        // E: snuff out / light a candle, the flame is its Flame_* parts
         for (auto& [name, o] : scene.objects) {
-            if (o.mesh != "sphere" || o.rigid < 0) continue;
-            o.prompt = "Activate";
-            o.on_interact = [this, original = o.material](scene_t& s, const std::string& self) {
-                object_t *o = s.get(self);
-                const bool on = o->material != "active glow";
-                o->material = on ? "active glow" : original;
-                alchemy_ui.set_status(on ? "The sphere hums and lights up." : "The sphere goes dark.");
+            if (!name.starts_with("candle") || name.contains('/')) continue;
+            o.prompt = "Snuff out";
+            o.on_interact = [this](scene_t& s, const std::string& self) {
+                object_t *candle = s.get(self);
+                const object_t *wick = s.get(self + "/Flame_Core");
+                const bool lit = wick != nullptr && !wick->visible; // it is out, so it gets lit
+                candle->prompt = lit ? "Snuff out" : "Light";
+                for (const char *flame : {"/Flame_Amber", "/Flame_Core"}) {
+                    if (object_t *part = s.get(self + flame)) part->visible = lit;
+                }
+                alchemy_ui.set_status(lit ? "The candle flickers back to life." : "The candle is out.");
             };
         }
 
-        // trigger: whatever lands in the can
-        trigger_t *can = room::add_can(scene, "can", vec3_t<gl::f32>(3.5f, 0.0f, 2.5f), vec2_t<gl::f32>(0.45f, 0.45f), 0.9f);
-        can->on_enter = [this](scene_t&, const std::string&, const std::string& object) {
-            ++cans_filled;
-            alchemy_ui.set_status(std::format("{} fell into the can ({} so far).", object, cans_filled));
-        };
-        can->on_exit = [this](scene_t&, const std::string&, const std::string& object) {
-            --cans_filled;
-            alchemy_ui.set_status(std::format("{} left the can.", object));
-        };
+        // E and collision: the door is locked
+        if (object_t *door = scene.get("door")) {
+            door->prompt      = "Open";
+            door->on_interact = [this](scene_t&, const std::string&) { alchemy_ui.set_status("The door is locked."); };
+            door->on_collision = [this](scene_t&, const std::string&, const std::string& other, gl::f32 impulse) {
+                if (impulse > 0.5f) alchemy_ui.set_status(std::format("THUD! {} hit the door.", other));
+            };
+        }
 
-        // collision: a gong on the back wall, hit it with something
-        scene.add("gong", {
-            .mesh = "cube", .material = "gold metal", .pos = {0.0f, 2.2f, -ROOM_Z + 0.07f}, .scale = {0.8f, 0.8f, 0.06f},
-            .body = body_kind_t::fixed,
-        });
-        scene.get("gong")->on_collision = [this](scene_t&, const std::string&, const std::string& other, gl::f32 impulse) {
-            if (impulse < 0.5f) return; // a touch is not a hit
-            alchemy_ui.set_status(std::format("DONG! {} hit the gong.", other));
-        };
+        // trigger: whatever drops into the cauldron
+        if (cauldron != nullptr) {
+            cauldron->on_enter = [this](scene_t&, const std::string&, const std::string& object) {
+                ++in_cauldron;
+                alchemy_ui.set_status(std::format("{} dropped into the cauldron ({} inside).", object, in_cauldron));
+            };
+            cauldron->on_exit = [this](scene_t&, const std::string&, const std::string& object) {
+                --in_cauldron;
+                alchemy_ui.set_status(std::format("{} was fished out of the cauldron.", object));
+            };
+        }
     }
 
     void input()
@@ -186,11 +156,6 @@ struct app_t {
         if (in.key_hit(gl::kb_key_t::key_2)) scene.shading = shading_t::gouraud;
         if (in.key_hit(gl::kb_key_t::key_3)) scene.shading = shading_t::phong;
 
-        if (in.key_hit(gl::kb_key_t::m)) {
-            model_material = (model_material + 1) % room::prop_materials.size();
-            if (object_t *o = scene.get("teapot")) o->material = room::prop_materials[model_material];
-        }
-
         // HUD text size
         if (in.key_held(gl::kb_key_t::x) && hud_text_size > 0.0f) hud_text_size -= 1.0f;
         if (in.key_held(gl::kb_key_t::c)) hud_text_size += 1.0f;
@@ -203,11 +168,11 @@ struct app_t {
         return std::format(
             "FPS: {:.0f}   {}x{}\n"
             "Camera: {}   pos: {:.1f} {:.1f} {:.1f}\n"
-            "Shading: {}   Model material: {}",
+            "Shading: {}",
             ctx.actual_fps, ctx.screen_size.x, ctx.screen_size.y,
             player.mode == cam_mode_t::fps ? "first-person" : "free-fly",
             pos.x, pos.y, pos.z,
-            shading_name[(int)scene.shading], room::prop_materials[model_material]
+            shading_name[(int)scene.shading]
         );
     }
 
@@ -274,11 +239,8 @@ struct app_t {
     }
 };
 
-int main(int argc, char **argv)
+int main()
 {
-    const char *model_path = "./assets/models/teapot.smf";
-    if (argc >= 2) model_path = argv[1];
-
     gl::gl_first_state_verify();
 
     gl::glfw_ctx_t glfw_ctx;
@@ -290,7 +252,7 @@ int main(int argc, char **argv)
 
     // declared after ctx: GL objects die before the GLFW context
     app_t app(ctx);
-    if (!app.init(model_path)) return 1;
+    if (!app.init()) return 1;
 
     ctx.before_loop();
     while (!ctx.window_should_close()) {

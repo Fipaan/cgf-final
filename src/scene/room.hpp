@@ -15,6 +15,10 @@ constexpr gl::f32 ROOM_Z = 6.0f;
 constexpr gl::f32 ROOM_H = 4.0f;
 constexpr gl::f32 WALL_T = 0.25f; // half thickness
 
+// height of the table top, and of the board of the wall shelf above its origin (both are measured on the models)
+constexpr gl::f32 TABLE_TOP = 0.81f;
+constexpr gl::f32 SHELF_TOP = 0.43f;
+
 namespace room {
     // Cube shelf unit: a grid of open cells made of boards.
     struct shelf_t {
@@ -35,22 +39,32 @@ namespace room {
         vec3_t<gl::f32> cell_floor(int col, int row) const;
     };
 
-    // materials from `add_materials` that dynamic props and the loaded model cycle through
-    extern const std::vector<std::string> prop_materials;
+    // models the lab is made of, registered in the scene (`scene_t::add_model`) before `build_lab`
+    extern const std::vector<std::string> model_names;
+    extern const std::vector<std::string> potion_models;
 
     // An open box (a can, a bin) made of fixed walls with a trigger of the same name over its inside, so
     // `scene.triggers[name]` tells what fell in. `inner_half` is the inner half size (x, z), `height` the inner height.
-    trigger_t *add_can(scene_t& scene, const std::string& name, vec3_t<gl::f32> floor_centre, vec2_t<gl::f32> inner_half, gl::f32 height);
+    // `material` null = the walls are not drawn, only their colliders are there
+    trigger_t *add_can(scene_t& scene, const std::string& name, vec3_t<gl::f32> floor_centre, vec2_t<gl::f32> inner_half, gl::f32 height, const char *material = "steel");
 
-    // needs meshes "cube", "sphere" and "model" in the scene
+    // needs the mesh "cube" in the scene
     void add_materials(scene_t& scene);
-    // static box, `half` is both the cube scale and the collider
+    // static box, `half` is both the cube scale and the collider. No `material`: just the collider
     void add_box(scene_t& scene, const std::string& name, const char *material, vec3_t<gl::f32> pos, vec3_t<gl::f32> half);
     void build_room(scene_t& scene);
     shelf_t add_shelf(scene_t& scene, const std::string& name, vec3_t<gl::f32> origin, vec3_t<gl::f32> facing, int cols, int rows);
     // a few small objects in the cells, they are dynamic and settle on the boards
     void fill_shelf(scene_t& scene, const std::string& name, const shelf_t& shelf);
     void build_shelves(scene_t& scene);
-    // the loaded model ("teapot"), collider from its bounds
-    void build_props(scene_t& scene);
+    object_t *place_model(scene_t& scene, const std::string& model, const std::string& name, vec3_t<gl::f32> pos, gl::f32 yaw, body_kind_t body);
+    void build_beams(scene_t& scene);
+    // the cauldron in the middle: returns the trigger over the inside of the bowl
+    trigger_t *build_cauldron(scene_t& scene);
+    void build_furniture(scene_t& scene);
+    void apply_lighting(scene_t& scene);
+
+    // the whole alchemy lab: shell, cauldron in the middle, tables, chairs, door, shelves with potions.
+    // Needs the mesh "cube" and all `model_names` registered. Returns the cauldron trigger.
+    trigger_t *build_lab(scene_t& scene);
 }

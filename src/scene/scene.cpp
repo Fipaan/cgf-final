@@ -44,22 +44,74 @@ bool scene_t::add_material(const std::string& name, const material_t& material)
     return materials.emplace(name, material).second;
 }
 
-bool scene_t::add_model(const std::string& name, const obj_model_t& model, vec3_t<gl::f32> pos, gl::f32 scale)
+bool scene_t::add_model(const std::string& key, const obj_model_t& model)
 {
+    if (models.contains(key) || model.parts.empty()) return false;
+
+    model_t t;
+    t.center = (model.bounds_min + model.bounds_max) * 0.5f;
+    t.half   = (model.bounds_max - model.bounds_min) * 0.5f;
+
     for (const obj_part_t& part : model.parts) {
         const obj_material_t& m = part.material;
-        const std::string key = name + "/" + m.name;
+        const std::string part_key = key + "/" + m.name;
 
-        if (!add_mesh(key, part.mesh)) return false;
-        add_material(key, material_t{
-            .ambient   = m.diffuse,
+        mesh_t mesh = part.mesh;
+        for (vec3_t<gl::f32>& v : mesh.vertices) v = v - t.center;
+        if (!add_mesh(part_key, mesh)) return false;
+
+        add_material(part_key, material_t{
+            .ambient   = color_t(m.diffuse.r + m.emission.r, m.diffuse.g + m.emission.g, m.diffuse.b + m.emission.b, 1.0f),
             .diffuse   = m.diffuse,
             .specular  = m.specular,
             .shininess = std::clamp(m.shininess, 1.0f, 128.0f),
         });
-        if (add(key, {.mesh = key, .material = key, .pos = pos, .scale = vec3_t<gl::f32>(scale)}) == nullptr) return false;
+        t.parts.push_back({part_key, part_key});
     }
+    models.emplace(key, std::move(t));
     return true;
+}
+
+object_t *scene_t::place_model(const std::string& key, const std::string& name, const model_desc_t& d)
+{
+    auto it = models.find(key);
+    if (it == models.end() || objects.contains(name)) return nullptr;
+    const model_t& m = it->second;
+
+    const mat4_t R = mat4_t::trs(vec3_t<gl::f32>(), vec3_t<gl::f32>(0.0f, d.yaw, 0.0f), vec3_t<gl::f32>(1.0f));
+    const vec3_t<gl::f32> centre = d.pos + R.transform_point(m.center * d.scale);
+
+    vec3_t<gl::f32> half = m.half * d.scale;
+    if (d.body == body_kind_t::fixed) {
+        // axis aligned box around the turned one
+        half = vec3_t<gl::f32>(std::fabs(R.at(0, 0)) * half.x + std::fabs(R.at(0, 2)) * half.z, half.y,
+                               std::fabs(R.at(2, 0)) * half.x + std::fabs(R.at(2, 2)) * half.z);
+    }
+
+    object_t *root = nullptr;
+    for (size_t i = 0; i < m.parts.size(); ++i) {
+        object_desc_t od;
+        od.mesh     = m.parts[i].mesh;
+        od.material = m.parts[i].material;
+        od.pos      = centre;
+        od.rot      = vec3_t<gl::f32>(0.0f, d.yaw, 0.0f);
+        od.scale    = vec3_t<gl::f32>(d.scale);
+        if (i == 0) {
+            od.body         = d.body;
+            od.half         = half;
+            od.restitution  = d.restitution;
+            od.friction     = d.friction;
+            od.mass         = d.mass;
+            od.prompt       = d.prompt;
+            od.on_interact  = d.on_interact;
+            od.on_collision = d.on_collision;
+        }
+        object_t *o = add(i == 0 ? name : name + "/" + m.parts[i].mesh.substr(key.size() + 1), od);
+        if (o == nullptr) return nullptr;
+        if (i == 0) root = o;
+        else o->parent = name;
+    }
+    return root;
 }
 
 object_t *scene_t::add(const std::string& name, const object_desc_t& d)
@@ -113,6 +165,10 @@ bool scene_t::remove(const std::string& name)
     if (it->second.body >= 0)  world.bodies[it->second.body].enabled = false;
     if (it->second.rigid >= 0) rigids.bodies[it->second.rigid].enabled = false;
     objects.erase(it);
+    for (auto child = objects.begin(); child != objects.end();) {
+        if (child->second.parent == name) child = objects.erase(child);
+        else ++child;
+    }
     return true;
 }
 
@@ -305,6 +361,13 @@ void scene_t::update(gl::f32 dt)
         const phys::rigid_t& r = rigids.bodies[o.rigid];
         o.pos    = r.pos;
         o.orient = r.orient;
+    }
+    for (auto& [_name, o] : objects) {
+        if (o.parent.empty()) continue;
+        if (const object_t *p = get(o.parent)) {
+            o.pos    = p->pos;
+            o.orient = p->orient;
+        }
     }
 
     _dispatch_events();

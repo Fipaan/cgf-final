@@ -47,7 +47,6 @@ static const std::vector<control_section_t> control_sections = {
         {"ESC",       "Pause"},
         {"TAB",       "Recipe book"},
         {"1  2  3",   "Shading: normals / Gouraud / Phong"},
-        {"M",         "Cycle the model material"},
         {"ARROWS  , .", "Move the light"},
         {"F1",        "Hide debug info"},
         {"X  C",      "Debug text size"},

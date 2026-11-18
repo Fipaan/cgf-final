@@ -136,17 +136,19 @@ namespace phys::detail {
         }
     }
 
-    // Separating axis test on the six face normals. The axis with the least overlap decides the contact
-    // normal for the whole pair, the contact points are the corners of the other box that went through that
-    // face. (Edge against edge is not detected, that is enough for things to rest, tip and topple.)
+    // Separating axis test on the six face normals. The axes with the least overlap decide the contact
+    // normal for the pair, the contact points are the corners of the other box that went through that face.
+    // Axes that tie (a small box lying flat on a big one: both of their faces overlap by the same amount) are
+    // all tried and the one that finds the most corners wins. (Edge against edge is not detected, that is
+    // enough for things to rest, tip and topple.)
     inline void box_box(const view_t& A, const view_t& B, std::vector<hit_t>& out)
     {
         const v3 ax[2][3] = {{col(*A.R, 0), col(*A.R, 1), col(*A.R, 2)}, {col(*B.R, 0), col(*B.R, 1), col(*B.R, 2)}};
         const f32 hv[2][3] = {{A.half.x, A.half.y, A.half.z}, {B.half.x, B.half.y, B.half.z}};
         const v3  d = B.pos - A.pos;
 
+        f32 overlap[2][3];
         f32 best = 1e30f;
-        int ref_box = 0, ref_axis = 0;
         for (int b = 0; b < 2; ++b) {
             for (int i = 0; i < 3; ++i) {
                 const v3& a = ax[b][i];
@@ -155,32 +157,44 @@ namespace phys::detail {
                     rA += std::fabs(vec3::dot(a, ax[0][k])) * hv[0][k];
                     rB += std::fabs(vec3::dot(a, ax[1][k])) * hv[1][k];
                 }
-                const f32 overlap = rA + rB - std::fabs(vec3::dot(d, a));
-                if (overlap <= 0.0f) return;
-                if (overlap < best - 1e-4f) { best = overlap; ref_box = b; ref_axis = i; }
+                overlap[b][i] = rA + rB - std::fabs(vec3::dot(d, a));
+                if (overlap[b][i] <= 0.0f) return;
+                best = std::min(best, overlap[b][i]);
             }
         }
 
-        const view_t& ref = ref_box == 0 ? A : B;
-        const view_t& inc = ref_box == 0 ? B : A;
-        v3 n = ax[ref_box][ref_axis]; // out of `ref`, towards `inc`
-        if (vec3::dot(inc.pos - ref.pos, n) < 0.0f) n = -n;
-        const v3 normal = ref_box == 0 ? n : -n; // A -> B
-        const int u = (ref_axis + 1) % 3, w = (ref_axis + 2) % 3;
+        std::vector<hit_t> chosen, candidate;
+        v3 chosen_normal;
+        for (int ref_box = 0; ref_box < 2; ++ref_box) {
+            for (int ref_axis = 0; ref_axis < 3; ++ref_axis) {
+                if (overlap[ref_box][ref_axis] > best + 0.002f) continue;
 
-        v3 c[8];
-        corners(inc, c);
-        const size_t before = out.size();
-        for (const v3& p : c) {
-            const v3  rel   = p - ref.pos;
-            const f32 depth = hv[ref_box][ref_axis] - vec3::dot(rel, n);
-            if (depth <= 0.0f) continue;
-            if (std::fabs(vec3::dot(rel, ax[ref_box][u])) > hv[ref_box][u] + 1e-3f) continue;
-            if (std::fabs(vec3::dot(rel, ax[ref_box][w])) > hv[ref_box][w] + 1e-3f) continue;
-            out.push_back({p, normal, depth});
+                const view_t& ref = ref_box == 0 ? A : B;
+                const view_t& inc = ref_box == 0 ? B : A;
+                v3 n = ax[ref_box][ref_axis]; // out of `ref`, towards `inc`
+                if (vec3::dot(inc.pos - ref.pos, n) < 0.0f) n = -n;
+                const v3 normal = ref_box == 0 ? n : -n; // A -> B
+                const int u = (ref_axis + 1) % 3, w = (ref_axis + 2) % 3;
+
+                v3 c[8];
+                corners(inc, c);
+                candidate.clear();
+                for (const v3& p : c) {
+                    const v3  rel   = p - ref.pos;
+                    const f32 depth = hv[ref_box][ref_axis] - vec3::dot(rel, n);
+                    if (depth <= 0.0f) continue;
+                    if (std::fabs(vec3::dot(rel, ax[ref_box][u])) > hv[ref_box][u] + 1e-3f) continue;
+                    if (std::fabs(vec3::dot(rel, ax[ref_box][w])) > hv[ref_box][w] + 1e-3f) continue;
+                    candidate.push_back({p, normal, depth});
+                }
+                if (candidate.size() > chosen.size()) { chosen = candidate; chosen_normal = normal; }
+                else if (chosen.empty() && chosen_normal.x == 0.0f && chosen_normal.y == 0.0f && chosen_normal.z == 0.0f) chosen_normal = normal;
+            }
         }
-        // overlapping without a corner through the face (crossing boxes)
-        if (out.size() == before) out.push_back({(ref.pos + inc.pos) * 0.5f, normal, best});
+
+        // overlapping without a corner through a face (crossing boxes)
+        if (chosen.empty()) chosen.push_back({(A.pos + B.pos) * 0.5f, chosen_normal, best});
+        out.insert(out.end(), chosen.begin(), chosen.end());
     }
 
     inline void sphere_box(const view_t& S, const view_t& B, bool sphere_is_a, std::vector<hit_t>& out)
@@ -254,6 +268,7 @@ namespace phys::detail {
         int sb = -1;           // with `STATIC`: index into the AABB world
         v3  ra, rb, normal, t1, t2;
         f32 depth = 0.0f, mu = 0.0f, bias = 0.0f;
+        f32 e = 0.0f, vn0 = 0.0f; // restitution, closing speed before the solve (negative = closing)
         f32 mass_n = 0.0f, mass_t1 = 0.0f, mass_t2 = 0.0f;
         f32 acc_n = 0.0f, acc_t1 = 0.0f, acc_t2 = 0.0f;
     };
@@ -407,10 +422,9 @@ inline void phys::rigid_world_t::step(gl::f32 dt, world_t& statics, int player)
             c.mass_t1 = effective_mass(c, c.t1);
             c.mass_t2 = effective_mass(c, c.t2);
 
-            const f32 vn = vec3::dot(velocity_at(c.b, c.rb) - velocity_at(c.a, c.ra), c.normal);
-            f32 bias = std::min(BETA / dt * std::max(h.depth - SLOP, 0.0f), MAX_PUSH);
-            if (vn < -REST_THRESHOLD) bias = std::max(bias, -e * vn);
-            c.bias = bias;
+            c.vn0  = vec3::dot(velocity_at(c.b, c.rb) - velocity_at(c.a, c.ra), c.normal);
+            c.e    = e;
+            c.bias = std::min(BETA / dt * std::max(h.depth - SLOP, 0.0f), MAX_PUSH);
             contacts.push_back(c);
         }
     };
@@ -472,6 +486,25 @@ inline void phys::rigid_world_t::step(gl::f32 dt, world_t& statics, int player)
         const v3 kick = pl.vel - player_vel;
         const f32 k = vec3::len(kick);
         if (k > MAX_PLAYER_KICK) pl.vel = player_vel + kick * (MAX_PLAYER_KICK / k);
+    }
+
+    // Bounce, once per touching pair and without torque: with one bounce per contact point a box landing flat
+    // gets a different kick at each corner, and ends up spinning and sliding away.
+    struct bounce_t { int ia, ib, sb; v3 normal; f32 closing, e; const contact_t *any; };
+    std::vector<bounce_t> bounces;
+    for (const contact_t& c : contacts) {
+        if (c.acc_n <= 0.0f || c.e <= 0.0f || c.vn0 > -REST_THRESHOLD) continue;
+        auto same = std::find_if(bounces.begin(), bounces.end(), [&](const bounce_t& b) { return b.ia == c.ia && b.ib == c.ib && b.sb == c.sb; });
+        if (same == bounces.end()) bounces.push_back({c.ia, c.ib, c.sb, c.normal, c.vn0, c.e, &c});
+        else same->closing = std::min(same->closing, c.vn0);
+    }
+    for (const bounce_t& b : bounces) {
+        contact_t c = *b.any;
+        const f32 k = c.a.inv_mass + c.b.inv_mass;
+        if (k <= 0.0f) continue;
+        const v3 P = b.normal * (-b.e * b.closing / k);
+        if (c.a.vel) *c.a.vel -= P * c.a.inv_mass;
+        if (c.b.vel) *c.b.vel += P * c.b.inv_mass;
     }
 
     // The player is blocked by what it pushes: its velocity is overwritten by input every frame, so impulses

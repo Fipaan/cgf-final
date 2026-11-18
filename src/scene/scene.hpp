@@ -69,6 +69,22 @@ struct object_desc_t {
 // kg/m^3 of dynamic objects without an explicit mass
 constexpr gl::f32 DENSITY = 10.0f;
 
+// A model placed in the world: see `scene_t::add_model` and `scene_t::place_model`
+struct model_desc_t {
+    vec3_t<gl::f32> pos;        // where the origin of the model goes (the pack has it at the middle of the base)
+    gl::f32 yaw   = 0.0f;       // radians around Y, the model turns around its origin
+    gl::f32 scale = 1.0f;
+    // the collider is the box around the whole model: an axis aligned one for fixed, an oriented one for dynamic
+    body_kind_t body = body_kind_t::none;
+    gl::f32 restitution = 0.3f;
+    gl::f32 friction    = 0.6f;
+    std::optional<gl::f32> mass; // default is the volume of the box * `DENSITY`
+    // go to the first part of the model, that is the one with the collider
+    std::string    prompt;
+    interact_fn_t  on_interact;
+    collision_fn_t on_collision;
+};
+
 struct object_t {
     std::string mesh, material;
     vec3_t<gl::f32> pos, scale;
@@ -78,6 +94,8 @@ struct object_t {
     bool visible = true;
     int  body    = -1; // fixed: index into `scene_t::world.bodies`
     int  rigid   = -1; // dynamic: index into `scene_t::rigids.bodies`
+    // the part of a placed model: it only has a look, position and orientation are the parent's
+    std::string parent;
 
     // E while looking at it (needs a collider): `scene_t::interact`. `prompt` is what the UI may show.
     std::string   prompt;
@@ -132,6 +150,13 @@ struct scene_t {
     std::map<std::string, object_t>   objects;
     std::map<std::string, trigger_t>  triggers;
 
+    struct model_t {
+        struct part_t { std::string mesh, material; };
+        std::vector<part_t> parts;
+        vec3_t<gl::f32> center, half; // bounds of the model in its own space, before recentring
+    };
+    std::map<std::string, model_t> models;
+
     camera_t  cam;
     shading_t shading = shading_t::phong;
 
@@ -150,11 +175,16 @@ struct scene_t {
     bool add_mesh(const std::string& name, const mesh_t& mesh);
     bool add_material(const std::string& name, const material_t& material);
 
-    // One visual object per material of the model, each named "<name>/<material>" (with the mesh and the
-    // material added under the same name), no colliders. `pos` is where the origin of the model goes.
-    // The ambient colour is the diffuse one: exported .mtl files have a grey `Ka` that would wash colours out.
-    // false if one of the names is taken.
-    bool add_model(const std::string& name, const obj_model_t& model, vec3_t<gl::f32> pos, gl::f32 scale = 1.0f);
+    // Registers a model under `key`: one mesh and one material per .mtl material, named "<key>/<material>",
+    // recentred on the middle of its bounds. The ambient colour is diffuse + emission (the .mtl `Ka` is a
+    // flat grey that would wash colours out; emission is faked through the ambient light, there is no emissive
+    // term in the shader). Placing it is `place_model`, as many times as needed.
+    bool add_model(const std::string& key, const obj_model_t& model);
+
+    // One object per part of the model `key`: the first one is called `name` and has the collider, the
+    // others are "<name>/<material>" and follow it. Returns the first one, nullptr if `key` is not
+    // registered or the names are taken.
+    object_t *place_model(const std::string& key, const std::string& name, const model_desc_t& desc);
 
     // nullptr if `name` is taken or the mesh / material is unknown
     object_t *add(const std::string& name, const object_desc_t& desc);
