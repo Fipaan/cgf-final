@@ -17,6 +17,8 @@
 #include <scene/drag.hpp>
 #include <scene/room.hpp>
 
+using namespace math;
+
 constexpr gl::f32 INTERACT_REACH = 3.0f; // how far E reaches
 
 struct app_t {

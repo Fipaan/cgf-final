@@ -4,6 +4,8 @@
 #include <cmath>
 #include <utility>
 
+using namespace math;
+
 scene_t::scene_t()
 {
     initialized = false;
@@ -185,12 +187,11 @@ phys::rigid_t *scene_t::rigid_of(const object_t& o)
 // distance along the ray to a box (rotated by `R`), -1 if missed or the ray starts inside
 static gl::f32 ray_box(vec3_t<gl::f32> origin, vec3_t<gl::f32> dir, vec3_t<gl::f32> pos, vec3_t<gl::f32> half, const mat4_t& R, gl::f32 max_dist)
 {
-    using namespace phys::detail;
-    const vec3_t<gl::f32> o = unrotate(R, origin - pos);
-    const vec3_t<gl::f32> d = unrotate(R, dir);
+    const vec3_t<gl::f32> o = phys::unrotate(R, origin - pos);
+    const vec3_t<gl::f32> d = phys::unrotate(R, dir);
     gl::f32 t_in = 0.0f, t_out = max_dist;
     for (int axis = 0; axis < 3; ++axis) {
-        const gl::f32 oa = comp(o, axis), da = comp(d, axis), h = comp(half, axis);
+        const gl::f32 oa = o.v[axis], da = d.v[axis], h = half.v[axis];
         if (std::fabs(da) < 1e-8f) {
             if (oa < -h || oa > h) return -1.0f;
             continue;
@@ -236,7 +237,7 @@ pick_t scene_t::pick(vec3_t<gl::f32> origin, vec3_t<gl::f32> dir, gl::f32 max_di
     for (size_t i = 0; i < world.bodies.size(); ++i) {
         const phys::body_t& b = world.bodies[i];
         if ((int)i == ignore || !b.enabled) continue;
-        const gl::f32 t = ray_box(origin, dir, b.pos, b.half, mat4_t::identity(), best);
+        const gl::f32 t = ray_box(origin, dir, b.pos, b.half, mat4_t::id(), best);
         if (t > 0.0f && t < best) { best = t; nearest_body = (int)i; nearest_rigid = -1; }
     }
     for (size_t i = 0; i < rigids.bodies.size(); ++i) {

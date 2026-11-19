@@ -9,9 +9,11 @@
 #include <vector>
 
 #include <core/gl/first.hpp>
-#include <2d/math.hpp>
-#include <3d/math.hpp>
+#include <2d/color.hpp>
+#include <3d/vec.hpp>
 #include <3d/mesh.hpp>
+
+namespace math {
 
 // Ka, Kd, Ks, Ke and Ns of the .mtl. If there is a `map_Kd` `diffuse` is multiplied by the average colour of
 // the image (textures are not drawn yet).
@@ -49,3 +51,5 @@ struct obj_model_t {
     // Objects and groups of the file are merged per material.
     bool load(const char *path, bool z_up = false);
 };
+
+} // namespace math

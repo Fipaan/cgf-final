@@ -34,7 +34,7 @@ struct drag_t {
     std::string hover; // object under the crosshair
     std::string held;  // object being dragged, empty = none
     gl::f32 distance = 0.0f; // camera -> grab point
-    vec3_t<gl::f32> offset;  // grab point -> body centre
+    math::vec3_t<gl::f32> offset;  // grab point -> body centre
     bool rotating = false;   // LMB + RMB, mouse movement turns the held object
 
     drag_t(scene_t& scene);

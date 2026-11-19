@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+using namespace math;
+
 drag_t::drag_t(scene_t& scene) :
     scene(scene)
 {}

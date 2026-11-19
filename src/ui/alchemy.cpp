@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+using namespace math;
+
 constexpr color_t alchemy_bg    (0.055f, 0.063f, 0.083f, 1.0f);
 constexpr color_t alchemy_panel (0.095f, 0.112f, 0.143f, 1.0f);
 constexpr color_t alchemy_tile  (0.16f,  0.19f,  0.23f,  1.0f);

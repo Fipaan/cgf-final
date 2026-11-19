@@ -3,6 +3,8 @@
 #include <cmath>
 #include <format>
 
+using namespace math;
+
 const std::vector<std::string> room::model_names   = {"Candle", "Cauldron", "Chair", "Door", "Potion_Blue", "Potion_Green", "Potion_Purple", "Potion_Red", "Shelf", "Table"};
 const std::vector<std::string> room::potion_models = {"Potion_Red", "Potion_Blue", "Potion_Green", "Potion_Purple"};
 

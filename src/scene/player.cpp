@@ -1,5 +1,7 @@
 #include "player.hpp"
 
+using namespace math;
+
 player_t::player_t(scene_t& scene) :
     scene(scene)
 {}

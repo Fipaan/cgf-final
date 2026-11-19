@@ -9,7 +9,7 @@
 #include <scene/scene.hpp>
 
 // player collider (AABB), eye sits `EYE_HEIGHT` above its centre
-constexpr vec3_t<gl::f32> PLAYER_HALF(0.3f, 0.9f, 0.3f);
+constexpr math::vec3_t<gl::f32> PLAYER_HALF(0.3f, 0.9f, 0.3f);
 constexpr gl::f32 EYE_HEIGHT  = 0.7f;
 constexpr gl::f32 WALK_SPEED  = 5.0f;
 constexpr gl::f32 FLY_SPEED   = 10.0f;
@@ -38,7 +38,7 @@ struct player_t {
     player_t(scene_t& scene);
 
     // `feet` is the point on the floor the player stands at
-    void spawn(vec3_t<gl::f32> feet);
+    void spawn(math::vec3_t<gl::f32> feet);
     void set_mode(cam_mode_t mode);
 
     // mouse look (if the mouse is captured and `look`), mode switch and movement

@@ -26,8 +26,8 @@ namespace gl {
         bool initialized;
         ctx_t& ctx;
 
-        std::vector<vec2_t<f32>> vertices;
-        std::vector<f32> vertices_flat, alphas, colors_flat;
+        std::vector<math::vec2_t<f32>> vertices;
+        std::vector<f32> vertices_flat, alphas;
 
         vao_t vao;
         vbo_t vbo_pos, vbo_alpha, vbo_color;
@@ -45,10 +45,10 @@ namespace gl {
 
         bool init();
 
-        bool draw_circle(vec2_t<f32> c, f32 r, std::size_t num_segments);
-        bool draw_circle_grad(vec2_t<f32> c, f32 r, f32 shift, std::size_t num_segments);
-        bool draw_ellipse(vec2_t<f32> c, vec2_t<f32> r, std::size_t num_segments);
-        bool draw_rect(rect_t rect);
+        bool draw_circle(math::vec2_t<f32> c, f32 r, std::size_t num_segments);
+        bool draw_circle_grad(math::vec2_t<f32> c, f32 r, f32 shift, std::size_t num_segments);
+        bool draw_ellipse(math::vec2_t<f32> c, math::vec2_t<f32> r, std::size_t num_segments);
+        bool draw_rect(math::rect_t rect);
 
         // all attributes are enabled, so every buffer must hold at least `count` vertices even if
         // the shape does not provide the data (reading past a buffer is undefined behaviour);

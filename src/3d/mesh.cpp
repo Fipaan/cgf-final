@@ -12,6 +12,8 @@
 #include <core/log.hpp>
 #include <core/gl/const.hpp>
 
+using namespace math;
+
 bool mesh_t::load_smf(const char *path)
 {
     std::ifstream in(path);
@@ -191,26 +193,25 @@ mesh_t mesh_t::plane()
     return m;
 }
 
-void mesh_t::build_buffer(std::vector<gl::f32>& out) const
+void mesh_t::spread(gl::flat_t<gl::f32>& container) const
 {
-    out.clear();
-    out.reserve(indices.size() * 9);
-
     for (size_t t = 0; t < tri_count(); ++t) {
         vec3_t<gl::f32> col = vec3::abs(face_normals[t]);
         for (size_t k = 0; k < 3; ++k) {
             uint32_t i = indices[3*t + k];
             const vec3_t<gl::f32>& p = vertices[i];
             const vec3_t<gl::f32>& n = vertex_normals[i];
-            out.insert(out.end(), {p.x, p.y, p.z, n.x, n.y, n.z, col.x, col.y, col.z});
+            const gl::f32 values[] = {p.x, p.y, p.z, n.x, n.y, n.z, col.x, col.y, col.z};
+            container.add(values, std::size(values));
         }
     }
 }
 
-bool mesh_gpu_t::upload(const mesh_t& mesh)
+bool gl::mesh_gpu_t::upload(const mesh_t& mesh)
 {
-    std::vector<gl::f32> buf;
-    mesh.build_buffer(buf);
+    gl::flat_t<gl::f32> buf;
+    buf.reset();
+    mesh.spread(buf);
 
     vao.gen_array();
     if (!vao.bind()) return false;
@@ -219,13 +220,13 @@ bool mesh_gpu_t::upload(const mesh_t& mesh)
     if (!vbo.add_vad(gl::vad_t(0, gl::vad_cpv_t::comp_3, 9, 0))) return false; // pos
     if (!vbo.add_vad(gl::vad_t(1, gl::vad_cpv_t::comp_3, 9, 3))) return false; // smooth normal
     if (!vbo.add_vad(gl::vad_t(2, gl::vad_cpv_t::comp_3, 9, 6))) return false; // flat color
-    if (!vbo.init_buffer(std::span<gl::f32>(buf.data(), buf.size()), gl::dsu_t::static_draw)) return false;
+    if (!vbo.init_buffer(std::span<gl::f32>(buf.data(), buf.count()), gl::dsu_t::static_draw)) return false;
 
-    vertex_count = (GLsizei)(buf.size() / 9);
+    vertex_count = (GLsizei)(buf.count() / 9);
     return true;
 }
 
-bool mesh_gpu_t::draw()
+bool gl::mesh_gpu_t::draw()
 {
     if (!vao.bind()) return false;
     glDrawArrays(GL_TRIANGLES, 0, vertex_count);

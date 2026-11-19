@@ -7,7 +7,7 @@
 #pragma once
 
 #include <core/gl/const.hpp>
-#include <2d/math.hpp>
+#include <2d/vec.hpp>
 
 namespace gl {
     struct input_t {
@@ -41,8 +41,8 @@ namespace gl {
         // hides the cursor and gives unbounded movement (mouse look)
         void set_mouse_capture(bool capture);
         // cursor movement in pixels since the previous call (0 on the first call after capture changes)
-        vec2_t<f32> mouse_delta();
+        math::vec2_t<f32> mouse_delta();
         // in window units, origin is top-left
-        vec2_t<double> cursor_position() const;
+        math::vec2_t<double> cursor_position() const;
     };
 }

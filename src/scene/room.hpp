@@ -22,8 +22,8 @@ constexpr gl::f32 SHELF_TOP = 0.43f;
 namespace room {
     // Cube shelf unit: a grid of open cells made of boards.
     struct shelf_t {
-        vec3_t<gl::f32> origin; // centre of the back side, on the floor
-        vec3_t<gl::f32> facing; // unit axis the open side looks at, (±1,0,0) or (0,0,±1)
+        math::vec3_t<gl::f32> origin; // centre of the back side, on the floor
+        math::vec3_t<gl::f32> facing; // unit axis the open side looks at, (±1,0,0) or (0,0,±1)
         int         cols = 1, rows = 1;
         gl::f32     cell  = 0.9f;   // inner cell size
         gl::f32     board = 0.06f;  // board thickness
@@ -32,11 +32,11 @@ namespace room {
         gl::f32 width()  const;
         gl::f32 height() const;
         // local (x right, y up, z out of the back) -> world
-        vec3_t<gl::f32> to_world(gl::f32 lx, gl::f32 ly, gl::f32 lz) const;
+        math::vec3_t<gl::f32> to_world(gl::f32 lx, gl::f32 ly, gl::f32 lz) const;
         // local half extents -> world half extents
-        vec3_t<gl::f32> to_world_half(gl::f32 hx, gl::f32 hy, gl::f32 hz) const;
+        math::vec3_t<gl::f32> to_world_half(gl::f32 hx, gl::f32 hy, gl::f32 hz) const;
         // middle of the floor of a cell
-        vec3_t<gl::f32> cell_floor(int col, int row) const;
+        math::vec3_t<gl::f32> cell_floor(int col, int row) const;
     };
 
     // models the lab is made of, registered in the scene (`scene_t::add_model`) before `build_lab`
@@ -46,18 +46,18 @@ namespace room {
     // An open box (a can, a bin) made of fixed walls with a trigger of the same name over its inside, so
     // `scene.triggers[name]` tells what fell in. `inner_half` is the inner half size (x, z), `height` the inner height.
     // `material` null = the walls are not drawn, only their colliders are there
-    trigger_t *add_can(scene_t& scene, const std::string& name, vec3_t<gl::f32> floor_centre, vec2_t<gl::f32> inner_half, gl::f32 height, const char *material = "steel");
+    trigger_t *add_can(scene_t& scene, const std::string& name, math::vec3_t<gl::f32> floor_centre, math::vec2_t<gl::f32> inner_half, gl::f32 height, const char *material = "steel");
 
     // needs the mesh "cube" in the scene
     void add_materials(scene_t& scene);
     // static box, `half` is both the cube scale and the collider. No `material`: just the collider
-    void add_box(scene_t& scene, const std::string& name, const char *material, vec3_t<gl::f32> pos, vec3_t<gl::f32> half);
+    void add_box(scene_t& scene, const std::string& name, const char *material, math::vec3_t<gl::f32> pos, math::vec3_t<gl::f32> half);
     void build_room(scene_t& scene);
-    shelf_t add_shelf(scene_t& scene, const std::string& name, vec3_t<gl::f32> origin, vec3_t<gl::f32> facing, int cols, int rows);
+    shelf_t add_shelf(scene_t& scene, const std::string& name, math::vec3_t<gl::f32> origin, math::vec3_t<gl::f32> facing, int cols, int rows);
     // a few small objects in the cells, they are dynamic and settle on the boards
     void fill_shelf(scene_t& scene, const std::string& name, const shelf_t& shelf);
     void build_shelves(scene_t& scene);
-    object_t *place_model(scene_t& scene, const std::string& model, const std::string& name, vec3_t<gl::f32> pos, gl::f32 yaw, body_kind_t body);
+    object_t *place_model(scene_t& scene, const std::string& model, const std::string& name, math::vec3_t<gl::f32> pos, gl::f32 yaw, body_kind_t body);
     void build_beams(scene_t& scene);
     // the cauldron in the middle: returns the trigger over the inside of the bowl
     trigger_t *build_cauldron(scene_t& scene);

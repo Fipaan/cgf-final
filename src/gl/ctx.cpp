@@ -5,6 +5,8 @@
 
 #include <core/log.hpp>
 
+using namespace math;
+
 gl::glfw_ctx_t::glfw_ctx_t()
 {
     initialized = false;
@@ -233,5 +235,5 @@ void gl::ctx_t::clear_color(color_t color)
 
 void gl::ctx_t::clear_color(uint32_t rgba)
 {
-    clear_color(color_t::from_hex(rgba));
+    clear_color(color_t(rgba));
 }

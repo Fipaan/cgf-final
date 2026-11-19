@@ -8,6 +8,8 @@
 #include <core/fast_obj/obj.hpp>
 #include <core/stb/image.hpp>
 
+using namespace math;
+
 // NOTE: textures are not drawn yet, so a material that takes its colour from one gets the average colour
 //       of the image, otherwise wood would come out white
 static void tint_with_texture(obj_material_t& material)
