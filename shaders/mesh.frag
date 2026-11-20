@@ -1,6 +1,7 @@
 #version 330 core
 
 in vec3 v_pos;
+in vec3 v_world;
 in vec3 v_normal;
 in vec3 v_flat;
 in vec4 v_gouraud;
@@ -13,6 +14,10 @@ uniform float material_shininess;
 
 uniform vec3  up_eye;         // world up in eye space, for the hemisphere ambient
 uniform float time;           // seconds, the lamp flickers with it
+uniform samplerCube shadow_map; // distance to the lamp / shadow_far, see shadow.frag
+uniform int   shadows_on;
+uniform vec3  light0_world;
+uniform float shadow_far;
 uniform float exposure;
 uniform float fog_density;
 uniform vec3  fog_color;
@@ -24,7 +29,8 @@ uniform float point_radius[8];
 out vec4 frag_color;
 
 // HDR result, `finish` brings it to the screen
-vec3 shade(vec3 P, vec3 N)
+// `sh` is how much of the lamp reaches the point (1 = all of it)
+vec3 shade(vec3 P, vec3 N, float sh)
 {
     vec3 V = normalize(-P);
 
@@ -39,7 +45,7 @@ vec3 shade(vec3 P, vec3 N)
         vec3 L = lp[i] - P;
         float d = length(L);
         L /= d;
-        float att = i == 0 ? flick / (1.0 + 0.02 * d + 0.012 * d * d) : 1.0 / (1.0 + 0.03 * d * d);
+        float att = i == 0 ? flick * sh / (1.0 + 0.02 * d + 0.012 * d * d) : 1.0 / (1.0 + 0.03 * d * d);
         float nl = max(dot(N, L), 0.0);
         c += material_diffuse.rgb * light_diffuse.rgb * nl * att;
         if (nl > 0.0) {
@@ -69,6 +75,22 @@ vec3 shade(vec3 P, vec3 N)
     return c;
 }
 
+// 1 = the lamp sees the point, 0 = something is in the way. 8 taps around the direction soften the edge
+float shadow_factor(vec3 world)
+{
+    vec3 dir = world - light0_world;
+    float d = length(dir);
+    float bias = 0.06 + 0.01 * d;
+    float r = 0.02 + 0.01 * d;
+    float lit = 0.0;
+    for (int i = 0; i < 8; ++i) {
+        vec3 o = vec3((i & 1) == 0 ? -1.0 : 1.0, (i & 2) == 0 ? -1.0 : 1.0, (i & 4) == 0 ? -1.0 : 1.0) * r;
+        float stored = texture(shadow_map, dir + o).r * shadow_far;
+        lit += d - bias <= stored ? 1.0 : 0.0;
+    }
+    return lit / 8.0;
+}
+
 // tone mapping (soft shoulder instead of a hard clamp), fog, a little noise against banding
 vec4 finish(vec3 c, vec3 P)
 {
@@ -87,5 +109,8 @@ void main()
 {
     if      (shading_mode == 0) frag_color = vec4(v_flat, 1.0);
     else if (shading_mode == 1) frag_color = finish(v_gouraud.rgb, v_pos);
-    else                        frag_color = finish(shade(v_pos, normalize(v_normal)), v_pos);
+    else {
+        float sh = shadows_on != 0 ? shadow_factor(v_world) : 1.0;
+        frag_color = finish(shade(v_pos, normalize(v_normal), sh), v_pos);
+    }
 }

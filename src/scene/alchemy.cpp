@@ -6,6 +6,8 @@
 #include <set>
 #include <string_view>
 
+#include <scene/room.hpp>
+
 using namespace math;
 using V = vec3_t<gl::f32>;
 
@@ -125,7 +127,11 @@ void brew_t::brew()
     for (int id : ids) selection[(size_t)count++] = id;
 
     const auto found = alchemy::find_recipe(selection, count);
-    if (!found) { ui.set_status("The mixture only bubbles. No known reaction."); return; }
+    if (!found) { 
+        scene.particles.smoke(bowl->pos + V(0.0f, 0.2f, 0.0f), 12, V(0.6f, 0.6f, 0.6f));
+        ui.set_status("The mixture only bubbles. No known reaction.");
+        return;
+    }
 
     // the bottles are used up
     for (const std::string& name : used) {
@@ -152,6 +158,7 @@ void brew_t::brew()
         case alchemy::result_kind::secret:  flash_color = V(0.7f, 0.3f, 1.0f); break;
     }
     flash = 1.0f;
+    scene.particles.fountain(bowl->pos + V(0.0f, 0.2f, 0.0f), 90, flash_color);
 }
 
 std::vector<std::string> brew_t::loose() const
@@ -207,6 +214,8 @@ void brew_t::set_float(bool on)
 
 void brew_t::blast(V centre, gl::f32 radius, gl::f32 strength)
 {
+    scene.particles.sparks(centre, (int)(7.0f * strength), 0.7f * strength, V(1.0f, 0.55f, 0.15f));
+    scene.particles.smoke(centre, (int)(strength * 0.8f), V(0.8f, 0.6f, 0.45f));
     for (const std::string& name : loose()) {
         phys::rigid_t& r = scene.rigids.bodies[(size_t)scene.objects[name].rigid];
         const V d = r.pos - centre;
@@ -315,10 +324,75 @@ void brew_t::update(gl::f32 dt)
 
     if (shake_left > 0.0f) shake_left = std::max(0.0f, shake_left - dt);
     update_lights(dt);
+    update_particles(dt);
+}
+
+void brew_t::update_particles(gl::f32 dt)
+{
+    particles_t& ps = scene.particles;
+    const bool full = bowl != nullptr && !bowl->inside.empty();
+
+    // the cauldron: thin steam always, bubbles that pop on the surface when there is something in it
+    if (bowl != nullptr) {
+        const V surface = V(bowl->pos.x, bowl->pos.y + bowl->half.y * 0.4f, bowl->pos.z);
+        steam_acc += dt * (full ? 40.0f : 14.0f);
+        for (; steam_acc >= 1.0f; steam_acc -= 1.0f) {
+            particle_t p;
+            p.pos = surface + V(rand(-0.22f, 0.22f), 0.0f, rand(-0.22f, 0.22f));
+            p.vel = V(rand(-0.05f, 0.05f), rand(0.3f, 0.6f), rand(-0.05f, 0.05f));
+            p.color = bowl_tint * 0.7f;
+            p.life = rand(1.6f, 2.8f);
+            p.size0 = 0.06f; p.size1 = 0.28f;
+            p.alpha = 0.16f; p.drag = 0.3f;
+            ps.emit(p);
+            if (full && rand(0.0f, 1.0f) < 0.4f) { // a bubble: small, bright, short-lived
+                particle_t b = p;
+                b.pos = surface + V(rand(-0.2f, 0.2f), 0.02f, rand(-0.2f, 0.2f));
+                b.vel = V(0.0f, rand(0.1f, 0.3f), 0.0f);
+                b.color = bowl_tint * 1.2f;
+                b.life = rand(0.3f, 0.7f);
+                b.size0 = 0.03f; b.size1 = 0.05f;
+                b.alpha = 0.8f; b.drag = 0.0f;
+                ps.emit(b);
+            }
+        }
+    }
+
+    // embers rising from every lit candle
+    ember_acc += dt * 3.0f;
+    for (; ember_acc >= 1.0f; ember_acc -= 1.0f) {
+        for (const V& top : flames) {
+            particle_t p;
+            p.pos = top + V(rand(-0.01f, 0.01f), 0.0f, rand(-0.01f, 0.01f));
+            p.vel = V(rand(-0.06f, 0.06f), rand(0.2f, 0.4f), rand(-0.06f, 0.06f));
+            p.color = V(1.0f, 0.55f, 0.2f);
+            p.life = rand(0.8f, 1.5f);
+            p.size0 = 0.014f; p.size1 = 0.004f;
+            p.alpha = 0.9f; p.drag = 0.4f;
+            ps.emit(p);
+        }
+    }
+
+    // dust drifting in the light of the lamp
+    dust_acc += dt * 8.0f;
+    const V lamp = scene.lamp.to_cart_y_up();
+    for (; dust_acc >= 1.0f; dust_acc -= 1.0f) {
+        particle_t p;
+        p.pos = V(std::clamp(lamp.x + rand(-3.0f, 3.0f), -ROOM_X + 0.3f, ROOM_X - 0.3f),
+                  std::clamp(lamp.y + rand(-2.2f, 0.5f), 0.3f, ROOM_H - 0.3f),
+                  std::clamp(lamp.z + rand(-3.0f, 3.0f), -ROOM_Z + 0.3f, ROOM_Z - 0.3f));
+        p.vel = V(rand(-0.04f, 0.04f), rand(-0.02f, 0.05f), rand(-0.04f, 0.04f));
+        p.color = V(1.0f, 0.85f, 0.6f);
+        p.life = rand(5.0f, 9.0f);
+        p.size0 = p.size1 = 0.012f;
+        p.alpha = 0.5f;
+        ps.emit(p);
+    }
 }
 
 void brew_t::update_lights(gl::f32 dt)
 {
+    flames.clear();
     // every lit candle is a small flickering light
     for (const auto& [name, o] : scene.objects) {
         if (!name.starts_with("candle") || name.contains('/')) continue;
@@ -329,9 +403,9 @@ void brew_t::update_lights(gl::f32 dt)
 
         const gl::f32 phase = (gl::f32)(std::hash<std::string>{}(name) % 628) / 100.0f;
         const gl::f32 flick = 0.85f + 0.10f * std::sin(scene.time * 17.0f + phase) + 0.05f * std::sin(scene.time * 29.0f + 2.0f * phase);
-        scene.lights[key] = point_light_t{
-            .pos = o.pos + V(0.0f, r->half.y + 0.05f, 0.0f), .color = V(1.0f, 0.55f, 0.2f) * (0.9f * flick), .radius = 3.0f,
-        };
+        const V top = o.pos + V(0.0f, r->half.y + 0.05f, 0.0f);
+        flames.push_back(top);
+        scene.lights[key] = point_light_t{.pos = top, .color = V(1.0f, 0.55f, 0.2f) * (0.9f * flick), .radius = 3.0f};
     }
 
     // the cauldron: a faint glow, the colour of the ingredients inside it, a flash after a brew
@@ -350,6 +424,7 @@ void brew_t::update_lights(gl::f32 dt)
         }
         if (n > 0) { tint = sum * (1.0f / (gl::f32)n); power = 1.0f; }
     }
+    bowl_tint = tint;
     flash = std::max(0.0f, flash - dt / 1.2f);
     tint  = tint + (flash_color - tint) * flash;
     power *= (1.0f + 0.1f * std::sin(scene.time * 3.0f)) + 3.0f * flash;

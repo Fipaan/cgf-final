@@ -12,11 +12,49 @@ scene_t::scene_t()
     initialized = false;
 }
 
+scene_t::~scene_t()
+{
+    if (shadow_fbo != 0)   glDeleteFramebuffers(1, &shadow_fbo);
+    if (shadow_cube != 0)  glDeleteTextures(1, &shadow_cube);
+    if (shadow_depth != 0) glDeleteRenderbuffers(1, &shadow_depth);
+}
+
 bool scene_t::init(const char *vertex_path, const char *fragment_path)
 {
     assert(!initialized);
     if (!shader.from_files(vertex_path, fragment_path)) return false;
     initialized = true;
+    return true;
+}
+
+bool scene_t::init_shadows(const char *vertex_path, const char *fragment_path)
+{
+    if (!shadow_shader.from_files(vertex_path, fragment_path)) return false;
+
+    // a cube of distances (one float per texel) with a depth buffer to sort what is in front
+    glGenTextures(1, &shadow_cube);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, shadow_cube);
+    for (int face = 0; face < 6; ++face) {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, 0, GL_R32F, shadow_size, shadow_size, 0, GL_RED, GL_FLOAT, nullptr);
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+    glGenRenderbuffers(1, &shadow_depth);
+    glBindRenderbuffer(GL_RENDERBUFFER, shadow_depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, shadow_size, shadow_size);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+    glGenFramebuffers(1, &shadow_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, shadow_depth);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X, shadow_cube, 0);
+    _shadow_ready = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     return true;
 }
 
@@ -350,6 +388,7 @@ void scene_t::_dispatch_events()
 void scene_t::update(gl::f32 dt)
 {
     time += dt;
+    particles.update(dt);
     // fixed steps, the player moves first and is then pushed back by what it runs into
     _step_acc += std::min(dt, 0.1f);
     while (_step_acc >= world.step_dt) {
@@ -376,9 +415,75 @@ void scene_t::update(gl::f32 dt)
     _dispatch_events();
 }
 
+// six passes, one per face of a cube around the lamp, each stores the distance from the lamp
+void scene_t::_render_shadows(vec3_t<gl::f32> light)
+{
+    struct caster_t { gl::mesh_gpu_t *gpu; mat4_t model; vec3_t<gl::f32> centre; gl::f32 radius; };
+    std::vector<caster_t> casters;
+    for (auto& [_name, o] : objects) {
+        if (!o.visible) continue;
+        auto mesh_it = meshes.find(o.mesh);
+        if (mesh_it == meshes.end()) continue;
+        const vec3_t<gl::f32>& h = mesh_it->second.half;
+        const vec3_t<gl::f32> scaled(h.x * o.scale.x, h.y * o.scale.y, h.z * o.scale.z);
+        casters.push_back({&mesh_it->second.gpu, mat4_t::translate(o.pos) * o.orient * mat4_t::scale(o.scale), o.pos, vec3::len(scaled)});
+    }
+
+    GLint viewport[4];
+    GLfloat clear[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    glGetFloatv(GL_COLOR_CLEAR_VALUE, clear);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0); // it is the target now, not a source
+    glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
+    glViewport(0, 0, shadow_size, shadow_size);
+
+    shadow_shader.use();
+    const mat4_t proj = mat4_t::perspective(90.0f * gl::PI / 180.0f, 1.0f, 0.05f, shadow_far);
+    shadow_shader.uniform(gl::m_type_t::m4x4, "proj", 1, gl::gl_bool::FALSE, proj.m);
+    shadow_shader.uniform("light_pos", light.x, light.y, light.z);
+    shadow_shader.uniform("far_plane", shadow_far);
+
+    const vec3_t<gl::f32> dirs[6] = {
+        {1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, -1.0f},
+    };
+    const vec3_t<gl::f32> ups[6] = {
+        {0.0f, -1.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, -1.0f, 0.0f},
+    };
+    for (int face = 0; face < 6; ++face) {
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, shadow_cube, 0);
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // nothing there: as far as it gets
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        const vec3_t<gl::f32> dir = dirs[face], up = ups[face];
+        const vec3_t<gl::f32> side = vec3::cross(dir, up);
+        const mat4_t view = mat4_t::look_at(light, light + dir, up);
+        shadow_shader.uniform(gl::m_type_t::m4x4, "view", 1, gl::gl_bool::FALSE, view.m);
+
+        for (caster_t& c : casters) {
+            // skip what is surely outside this face (a sphere against the pyramid, on the generous side)
+            const vec3_t<gl::f32> d = c.centre - light;
+            const gl::f32 depth = vec3::dot(d, dir);
+            const gl::f32 wide  = std::max(std::fabs(vec3::dot(d, up)), std::fabs(vec3::dot(d, side)));
+            if (depth + c.radius <= 0.0f || wide - c.radius * 1.5f > depth) continue;
+            shadow_shader.uniform(gl::m_type_t::m4x4, "model", 1, gl::gl_bool::FALSE, c.model.m);
+            c.gpu->draw();
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    glClearColor(clear[0], clear[1], clear[2], clear[3]);
+}
+
 bool scene_t::draw(gl::f32 aspect)
 {
     assert(initialized);
+
+    const bool shadows_now = shadows && _shadow_ready;
+    const vec3_t<gl::f32> lamp_world = lamp.to_cart_y_up();
+    if (shadows_now) _render_shadows(lamp_world);
 
     const mat4_t view = cam.view();
     const mat4_t proj = cam.proj(aspect);
@@ -396,6 +501,15 @@ bool scene_t::draw(gl::f32 aspect)
     shader.uniform("light_diffuse",  light_diffuse.r,  light_diffuse.g,  light_diffuse.b,  light_diffuse.a);
     shader.uniform("light_specular", light_specular.r, light_specular.g, light_specular.b, light_specular.a);
     shader.uniform("shading_mode", (int)shading);
+
+    shader.uniform("shadows_on", (GLint)(shadows_now ? 1 : 0));
+    shader.uniform("light0_world", lamp_world.x, lamp_world.y, lamp_world.z);
+    shader.uniform("shadow_far", shadow_far);
+    shader.uniform("shadow_map", (GLint)0);
+    if (shadows_now) {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, shadow_cube);
+    }
 
     // atmosphere
     const vec3_t<gl::f32> up_eye = view.transform_point(vec3_t<gl::f32>(0.0f, 1.0f, 0.0f)) - view.transform_point(vec3_t<gl::f32>());
@@ -422,7 +536,8 @@ bool scene_t::draw(gl::f32 aspect)
         shader.uniform(std::format("point_radius[{}]", i), l.radius);
     }
 
-    return _draw_objects();
+    if (!_draw_objects()) return false;
+    return particles.draw(view, proj, cam.fovy);
 }
 
 bool scene_t::_draw_objects()

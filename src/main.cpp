@@ -54,6 +54,8 @@ struct app_t {
     bool init()
     {
         if (!scene.init("shaders/mesh.vert", "shaders/mesh.frag")) return false;
+        if (!scene.init_shadows("shaders/shadow.vert", "shaders/shadow.frag")) return false;
+        if (!scene.particles.init("shaders/particle.vert", "shaders/particle.frag")) return false;
         if (!scene.add_mesh("cube", mesh_t::cube())) return false;
 
         // the models of the lab, then the lab itself
@@ -124,6 +126,10 @@ struct app_t {
         player.input(in, ctx.last_frame, !drag.rotating);
 
         if (in.key_hit(gl::kb_key_t::f1)) hud_visible = !hud_visible;
+        if (in.key_hit(gl::kb_key_t::f3)) {
+            scene.shadows = !scene.shadows;
+            alchemy_ui.set_status(scene.shadows ? "Shadows on." : "Shadows off.");
+        }
 
         // E: use what is under the crosshair
         const pick_t look = scene.pick(scene.cam.pos, scene.cam.forward(), INTERACT_REACH, (int)player.body);

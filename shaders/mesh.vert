@@ -22,12 +22,14 @@ uniform vec3  point_col[8];   // colour * intensity
 uniform float point_radius[8];
 
 out vec3 v_pos;
+out vec3 v_world;
 out vec3 v_normal;
 out vec3 v_flat;
 out vec4 v_gouraud;
 
 // HDR result, `finish` brings it to the screen
-vec3 shade(vec3 P, vec3 N)
+// `sh` is how much of the lamp reaches the point (1 = all of it)
+vec3 shade(vec3 P, vec3 N, float sh)
 {
     vec3 V = normalize(-P);
 
@@ -42,7 +44,7 @@ vec3 shade(vec3 P, vec3 N)
         vec3 L = lp[i] - P;
         float d = length(L);
         L /= d;
-        float att = i == 0 ? flick / (1.0 + 0.02 * d + 0.012 * d * d) : 1.0 / (1.0 + 0.03 * d * d);
+        float att = i == 0 ? flick * sh / (1.0 + 0.02 * d + 0.012 * d * d) : 1.0 / (1.0 + 0.03 * d * d);
         float nl = max(dot(N, L), 0.0);
         c += material_diffuse.rgb * light_diffuse.rgb * nl * att;
         if (nl > 0.0) {
@@ -78,9 +80,10 @@ void main()
     vec4 p  = mv * vec4(a_pos, 1.0);
 
     v_pos     = p.xyz;
+    v_world   = (model * vec4(a_pos, 1.0)).xyz;
     v_normal  = normalize(mat3(transpose(inverse(mv))) * a_normal);
     v_flat    = a_flat;
-    v_gouraud = vec4(shade(v_pos, v_normal), 1.0);
+    v_gouraud = vec4(shade(v_pos, v_normal, 1.0), 1.0);
 
     gl_Position = proj * p;
 }

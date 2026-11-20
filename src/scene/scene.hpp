@@ -23,6 +23,7 @@
 #include <3d/camera.hpp>
 #include <3d/physics.hpp>
 #include <3d/rigid.hpp>
+#include <scene/particles.hpp>
 
 struct material_t {
     math::color_t ambient, diffuse, specular;
@@ -177,6 +178,17 @@ struct scene_t {
     math::color_t light_specular = math::color_t(1.0f, 1.0f, 1.0f, 1.0f);
     std::map<std::string, point_light_t> lights; // owned by whoever adds them, in world coordinates
 
+    particles_t particles;
+
+    // shadows of light 0, the lamp
+    bool    shadows       = true;
+    int     shadow_size   = 1024; // per face
+    gl::f32 shadow_far    = 30.0f; // what is further than this from the lamp is lit
+    gl::shader_t shadow_shader;
+    GLuint  shadow_fbo = 0, shadow_cube = 0, shadow_depth = 0;
+    bool    _shadow_ready = false;
+    void _render_shadows(math::vec3_t<gl::f32> light);
+
     // look of the whole picture
     gl::f32 time         = 0.0f; // seconds since the start, the lamp flickers with it
     gl::f32 exposure     = 1.35f;
@@ -184,8 +196,14 @@ struct scene_t {
     math::vec3_t<gl::f32> fog_color = math::vec3_t<gl::f32>(0.05f, 0.043f, 0.067f);
 
     scene_t();
+    ~scene_t();
+    scene_t(const scene_t&) = delete;
+    scene_t& operator=(const scene_t&) = delete;
 
     bool init(const char *vertex_path, const char *fragment_path);
+    // shadows of the lamp: a cube map of distances, rendered every frame (see `shadow.vert` / `shadow.frag`).
+    // Not calling it, or a card that can't do it, just means no shadows.
+    bool init_shadows(const char *vertex_path, const char *fragment_path);
 
     // uploads the mesh, normals must already be computed
     bool add_mesh(const std::string& name, const math::mesh_t& mesh);

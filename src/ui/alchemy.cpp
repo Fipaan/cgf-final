@@ -51,6 +51,7 @@ static const std::vector<control_section_t> control_sections = {
         {"1  2  3",   "Shading: normals / Gouraud / Phong"},
         {"ARROWS  , .", "Move the light"},
         {"F1",        "Hide debug info"},
+        {"F3",        "Shadows on / off"},
         {"X  C",      "Debug text size"},
     }},
 };
