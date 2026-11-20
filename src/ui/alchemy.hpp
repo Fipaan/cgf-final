@@ -27,7 +27,6 @@ alchemy_ui.draw();
 namespace alchemy {
     enum class screen_t { main_menu, settings, controls, game, pause, codex };
 
-    // TODO: text is too small
     struct ui_t {
         bool initialized;
         gl::gui_t& gui;
@@ -37,7 +36,13 @@ namespace alchemy {
         screen_t codex_return  = screen_t::game;
         bool vsync     = true;
         bool limit_120 = false;
+        bool reduced_motion = false;
         int  codex_page = 0;
+        float screen_age = 0.0f;
+        float status_age = 10.0f;
+        float discovery_age = 10.0f;
+        float discovery_progress = 0.0f;
+        std::string discovery_title;
         std::array<bool, recipes.size()> discovered = {};
         std::string status = "Find ingredients and use the cauldron to brew potions.";
 
@@ -51,10 +56,13 @@ namespace alchemy {
         bool game_interactive() const;
         void record_recipe(const recipe_t& recipe);
         void set_status(std::string message);
+        void set_screen(screen_t next);
+        gl::box_t frame(float width, float height) const;
+        void window(gl::box_t box, const std::string& title, const std::string& subtitle);
 
         void menu();
         void settings();
-    void controls();
+        void controls();
         void hud();
         void paused();
         void codex();
