@@ -34,12 +34,19 @@ struct player_t {
     scene_t& scene;
     size_t   body = 0; // index into `scene_t::world.bodies`
     cam_mode_t mode = cam_mode_t::fps;
+    gl::f32 scale      = 1.0f; // body and eye height, see `set_scale`
+    gl::f32 speed_mult = 1.0f; // walking / flying speed
+    gl::f32 jump_mult  = 1.0f;
 
     player_t(scene_t& scene);
 
     // `feet` is the point on the floor the player stands at
     void spawn(math::vec3_t<gl::f32> feet);
     void set_mode(cam_mode_t mode);
+    // resizes the body around the feet (and the eye height with it), 1 = normal
+    void set_scale(gl::f32 scale);
+    // `feet` is the point on the floor, velocity is cleared
+    void teleport(math::vec3_t<gl::f32> feet);
 
     // mouse look (if the mouse is captured and `look`), mode switch and movement
     void input(gl::input_t& input, gl::f32 dt, bool look = true);

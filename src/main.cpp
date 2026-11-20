@@ -16,6 +16,7 @@
 #include <scene/player.hpp>
 #include <scene/drag.hpp>
 #include <scene/room.hpp>
+#include <scene/alchemy.hpp>
 
 using namespace math;
 
@@ -31,11 +32,10 @@ struct app_t {
     scene_t  scene;
     player_t player;
     drag_t   drag;
+    brew_t   brew;
 
     // what E would do for the object under the crosshair, empty = nothing
     std::string interact_prompt;
-    trigger_t *cauldron = nullptr; // over the inside of the bowl
-    int in_cauldron = 0;
 
     bool    hud_visible   = true;
     gl::f32 hud_text_size = 20.0f;
@@ -47,7 +47,8 @@ struct app_t {
         gui(c, draw2d, text),
         alchemy_ui(gui),
         player(scene),
-        drag(scene)
+        drag(scene),
+        brew(scene, player, alchemy_ui)
     {}
 
     bool init()
@@ -62,9 +63,11 @@ struct app_t {
             if (!model.load(std::format("./assets/models/alchemy_pack/{0}/{0}.obj", name).c_str(), true)) return false;
             if (!scene.add_model(name, model)) return false;
         }
-        cauldron = room::build_lab(scene);
-        player.spawn(vec3_t<gl::f32>(0, 0, 4.5f));
+        trigger_t *bowl = room::build_lab(scene);
+        const vec3_t<gl::f32> spawn(0, 0, 4.5f);
+        player.spawn(spawn);
         setup_interactions();
+        brew.setup(bowl, spawn); // potions, the cauldron and what they do
 
         if (!draw2d.init()) return false;
         FT_Long face_index = 0;
@@ -77,8 +80,8 @@ struct app_t {
         return true;
     }
 
-    // How objects of the lab react, three ways: E (candles, the door), a trigger (the cauldron),
-    // a collision (the door).
+    // How objects of the lab react: E (candles, the door), a collision (the door). The cauldron and the
+    // potions are `brew_t`.
     void setup_interactions()
     {
         // E: snuff out / light a candle, the flame is its Flame_* parts
@@ -103,18 +106,6 @@ struct app_t {
             door->on_interact = [this](scene_t&, const std::string&) { alchemy_ui.set_status("The door is locked."); };
             door->on_collision = [this](scene_t&, const std::string&, const std::string& other, gl::f32 impulse) {
                 if (impulse > 0.5f) alchemy_ui.set_status(std::format("THUD! {} hit the door.", other));
-            };
-        }
-
-        // trigger: whatever drops into the cauldron
-        if (cauldron != nullptr) {
-            cauldron->on_enter = [this](scene_t&, const std::string&, const std::string& object) {
-                ++in_cauldron;
-                alchemy_ui.set_status(std::format("{} dropped into the cauldron ({} inside).", object, in_cauldron));
-            };
-            cauldron->on_exit = [this](scene_t&, const std::string&, const std::string& object) {
-                --in_cauldron;
-                alchemy_ui.set_status(std::format("{} was fished out of the cauldron.", object));
             };
         }
     }
@@ -225,11 +216,15 @@ struct app_t {
         drag.update(ctx.input, ctx.last_frame);
         scene.update(ctx.last_frame);
         player.update();
+        brew.update(ctx.last_frame);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         const gl::f32 aspect = (gl::f32)ctx.screen_size.x / (gl::f32)std::max(ctx.screen_size.y, 1);
-        if (!scene.draw(aspect)) return false;
+        brew.shake_begin();
+        const bool drawn = scene.draw(aspect);
+        brew.shake_end();
+        if (!drawn) return false;
 
         if (hud_visible) draw_hud();
         if (alchemy_ui.game_interactive() && ctx.input.mouse_captured) draw_crosshair();
