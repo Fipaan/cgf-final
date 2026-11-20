@@ -19,6 +19,9 @@ constexpr gl::f32 WALL_T = 0.25f; // half thickness
 constexpr gl::f32 TABLE_TOP = 0.81f;
 constexpr gl::f32 SHELF_TOP = 0.43f;
 
+// how much bigger than the model the cauldron is
+constexpr gl::f32 CAULDRON_SCALE = 2.0f;
+
 namespace room {
     // Cube shelf unit: a grid of open cells made of boards.
     struct shelf_t {

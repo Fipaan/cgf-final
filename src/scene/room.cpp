@@ -191,12 +191,14 @@ void room::build_beams(scene_t& scene)
 }
 
 // The cauldron in the middle: the model itself has no collider, an open bowl does (a floor and four walls
-// around the opening, measured on the model), with a trigger over the inside.
+// around the opening, measured on the model at scale 1 and multiplied by `CAULDRON_SCALE`), with a trigger
+// over the inside of the bowl.
 trigger_t *room::build_cauldron(scene_t& scene)
 {
-    place_model(scene, "Cauldron", "cauldron", {0.0f, 0.0f, 0.0f}, 0.0f, body_kind_t::none);
-    add_box(scene, "cauldron/base", nullptr, {0.0f, 0.115f, 0.0f}, {0.3f, 0.115f, 0.3f});
-    return add_can(scene, "cauldron_bowl", {0.0f, 0.23f, 0.0f}, {0.3f, 0.3f}, 0.43f, nullptr);
+    constexpr gl::f32 k = CAULDRON_SCALE;
+    scene.place_model("Cauldron", "cauldron", model_desc_t{.pos = {0.0f, 0.0f, 0.0f}, .scale = k});
+    add_box(scene, "cauldron/base", nullptr, {0.0f, 0.115f * k, 0.0f}, {0.3f * k, 0.115f * k, 0.3f * k});
+    return add_can(scene, "cauldron_bowl", {0.0f, 0.23f * k, 0.0f}, {0.3f * k, 0.3f * k}, 0.43f * k, nullptr);
 }
 
 void room::build_furniture(scene_t& scene)
@@ -244,13 +246,13 @@ void room::build_furniture(scene_t& scene)
     }
 }
 
-// dim and warm: one lamp above the cauldron, a little ambient light
+// dark: the lamp is only a faint glow, the candles and the cauldron are what lights the room
 void room::apply_lighting(scene_t& scene)
 {
     scene.lamp = cyl_t{0.0f, 0.4f, 2.4f};
-    scene.light_ambient  = color_t(0.15f, 0.12f, 0.13f, 1.0f);
-    scene.light_diffuse  = color_t(0.85f, 0.66f, 0.45f, 1.0f);
-    scene.light_specular = color_t(1.00f, 0.90f, 0.70f, 1.0f);
+    scene.light_ambient  = color_t(0.025f, 0.022f, 0.032f, 1.0f);
+    scene.light_diffuse  = color_t(0.14f, 0.11f, 0.09f, 1.0f);
+    scene.light_specular = color_t(0.60f, 0.55f, 0.50f, 1.0f);
 }
 
 trigger_t *room::build_lab(scene_t& scene)

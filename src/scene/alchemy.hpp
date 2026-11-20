@@ -39,6 +39,10 @@ struct brew_t {
     math::vec3_t<gl::f32> spawn;
     math::vec3_t<gl::f32> bowl_centre; // where explosions and the reverse explosion are centred
 
+    // what the cauldron has swallowed so far (ingredient ids), and whether a candle has set it alight
+    std::vector<int> mix;
+    bool primed = false;
+
     // bottle -> ingredient id (index into `alchemy::ingredients`)
     std::map<std::string, int> ingredient_of;
 
@@ -79,7 +83,13 @@ struct brew_t {
     void shake_begin();
     void shake_end();
 
-    // E on the cauldron or on a bottle inside it
+    // a bottle or a candle fell into the cauldron: it is eaten, a bottle goes into the mix, a candle brews it
+    void throw_in(const std::string& object);
+    void eat(const std::string& name);       // removes the object from the world for good
+    bool is_candle(const std::string& name) const;
+    math::vec3_t<gl::f32> bowl_surface() const;
+
+    // E on the cauldron, or a candle. Whatever the mix is, the cauldron is empty afterwards
     void brew();
     // candle flames and the cauldron glow as scene lights, every frame
     void update_lights(gl::f32 dt);

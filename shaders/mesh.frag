@@ -38,6 +38,9 @@ vec3 shade(vec3 P, vec3 N, float sh)
     float hemi = 0.65 + 0.35 * (dot(N, up_eye) * 0.5 + 0.5);
     vec3 c = material_ambient.rgb * light_ambient.rgb * hemi;
 
+    // what the material glows with on its own (flames, liquids): ambient above diffuse, not dimmed by the room
+    c += max(material_ambient.rgb - material_diffuse.rgb, 0.0);
+
     // light 0: the lamp, flickers like a flame; light 1: the headlight, falls off quickly
     float flick = 1.0 + 0.04 * sin(time * 13.0) + 0.03 * sin(time * 7.3 + 1.0) + 0.02 * sin(time * 31.0);
     vec3 lp[2] = vec3[2](light0_pos, light1_pos);

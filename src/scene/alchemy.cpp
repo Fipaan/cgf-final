@@ -29,7 +29,7 @@ void brew_t::setup(trigger_t *bowl_trigger, V spawn_point)
 {
     bowl  = bowl_trigger;
     spawn = spawn_point;
-    if (bowl != nullptr) bowl_centre = V(bowl->pos.x, bowl->pos.y + 0.6f, bowl->pos.z);
+    if (bowl != nullptr) bowl_centre = V(bowl->pos.x, bowl->pos.y + bowl->half.y + 0.3f, bowl->pos.z);
 
     // bottles: dynamic objects whose model is a potion. The ingredient goes round the six of them, so every
     // one is on the shelves, and the liquid takes its colour
@@ -57,7 +57,6 @@ void brew_t::setup(trigger_t *bowl_trigger, V spawn_point)
 
         scene.objects[name].prompt = "Inspect";
         scene.objects[name].on_interact = [this](scene_t&, const std::string& self) {
-            if (bowl != nullptr && bowl->inside.contains(self)) { brew(); return; }
             const auto it = ingredient_of.find(self);
             if (it != ingredient_of.end()) ui.set_status(std::format("{} essence.", alchemy::ingredients[(size_t)it->second]));
         };
@@ -70,15 +69,9 @@ void brew_t::setup(trigger_t *bowl_trigger, V spawn_point)
         o.on_interact = [this](scene_t&, const std::string&) { brew(); };
     }
     if (bowl != nullptr) {
-        bowl->filter   = [this](const std::string& name, const object_t&) { return ingredient_of.contains(name); };
-        bowl->on_enter = [this](scene_t&, const std::string&, const std::string& object) {
-            ui.set_status(std::format("{} dropped in. Cauldron: {}. Press E to brew.",
-                                      alchemy::ingredients[(size_t)ingredient_of[object]], contents()));
-        };
-        bowl->on_exit = [this](scene_t&, const std::string&, const std::string&) {
-            const std::string now = contents();
-            ui.set_status(now.empty() ? "The cauldron is empty." : "Cauldron: " + now + ". Press E to brew.");
-        };
+        // bottles and candles count, everything else (chairs, the player's trash) just sits in the bowl
+        bowl->filter   = [this](const std::string& name, const object_t&) { return ingredient_of.contains(name) || is_candle(name); };
+        bowl->on_enter = [this](scene_t&, const std::string&, const std::string& object) { throw_in(object); };
     }
 
     // where everything starts
@@ -94,55 +87,93 @@ void brew_t::setup(trigger_t *bowl_trigger, V spawn_point)
     }
 }
 
+bool brew_t::is_candle(const std::string& name) const
+{
+    return name.starts_with("candle") && !name.contains('/');
+}
+
+V brew_t::bowl_surface() const
+{
+    return bowl == nullptr ? V() : V(bowl->pos.x, bowl->pos.y + bowl->half.y * 0.4f, bowl->pos.z);
+}
+
 std::string brew_t::contents() const
 {
-    if (bowl == nullptr) return "";
-    std::set<int> ids;
-    for (const std::string& name : bowl->inside) {
-        const auto it = ingredient_of.find(name);
-        if (it != ingredient_of.end()) ids.insert(it->second);
-    }
+    const std::set<int> ids(mix.begin(), mix.end());
     std::string text;
     for (int id : ids) text += (text.empty() ? "" : " + ") + std::string(alchemy::ingredients[(size_t)id]);
     return text;
 }
 
-void brew_t::brew()
+void brew_t::eat(const std::string& name)
+{
+    if (bowl != nullptr) bowl->inside.erase(name); // so it doesn't "leave" next frame
+    ingredient_of.erase(name);
+    home.erase(name);
+    scene.lights.erase("candle:" + name);
+    if (const auto parts = parts_of.find(name); parts != parts_of.end()) {
+        for (const std::string& part : parts->second) home.erase(part);
+        parts_of.erase(parts);
+    }
+    scene.remove(name);
+}
+
+constexpr int EXPLOSION_ID = 4; // index of "Explosion" in `alchemy::ingredients`
+
+void brew_t::throw_in(const std::string& object)
 {
     if (bowl == nullptr) return;
 
-    std::set<int> ids;
-    std::vector<std::string> used;
-    for (const std::string& name : bowl->inside) {
-        const auto it = ingredient_of.find(name);
-        if (it == ingredient_of.end()) continue;
-        ids.insert(it->second);
-        used.push_back(name);
-    }
-    if (used.empty()) { ui.set_status("The cauldron is empty. Drop some bottles in first."); return; }
-    if (ids.size() > 3) { ui.set_status("Too many different ingredients: three at most."); return; }
-
-    std::array<int, 3> selection = {-1, -1, -1};
-    int count = 0;
-    for (int id : ids) selection[(size_t)count++] = id;
-
-    const auto found = alchemy::find_recipe(selection, count);
-    if (!found) { 
-        scene.particles.smoke(bowl->pos + V(0.0f, 0.2f, 0.0f), 12, V(0.6f, 0.6f, 0.6f));
-        ui.set_status("The mixture only bubbles. No known reaction.");
+    if (is_candle(object)) {
+        eat(object);
+        scene.particles.sparks(bowl_surface(), 30, 3.0f, V(1.0f, 0.6f, 0.2f));
+        if (!mix.empty()) { brew(); return; }              // the flame sets off what is in there
+        if (primed) {                                      // a second flame is just explosion essence
+            primed = false;
+            mix.push_back(EXPLOSION_ID);
+            brew();
+            return;
+        }
+        primed = true;
+        ui.set_status("The candle sets the cauldron alight. The next potion brews at once.");
         return;
     }
 
-    // the bottles are used up
-    for (const std::string& name : used) {
-        bowl->inside.erase(name);
-        ingredient_of.erase(name);
-        home.erase(name);
-        if (const auto parts = parts_of.find(name); parts != parts_of.end()) {
-            for (const std::string& part : parts->second) home.erase(part);
-            parts_of.erase(parts);
-        }
-        scene.remove(name);
+    const auto it = ingredient_of.find(object);
+    if (it == ingredient_of.end()) return;
+    const int id = it->second;
+    eat(object);
+    mix.push_back(id);
+
+    const auto& c = alchemy::ingredient_colors[(size_t)id];
+    scene.particles.fountain(bowl_surface(), 14, V(c[0], c[1], c[2]));
+
+    if (primed) { // lit and waiting: this one goes straight into the fire
+        primed = false;
+        brew();
+        return;
+    }
+    ui.set_status(std::format("The cauldron swallows {}. Mix: {}. E or a candle brews it.", alchemy::ingredients[(size_t)id], contents()));
+}
+
+void brew_t::brew()
+{
+    if (bowl == nullptr) return;
+    if (mix.empty()) { ui.set_status("The cauldron is empty. Throw some bottles in."); return; }
+
+    // whatever comes out, the cauldron is empty afterwards
+    const std::set<int> ids(mix.begin(), mix.end());
+    mix.clear();
+    primed = false;
+
+    std::array<int, 3> selection = {-1, -1, -1};
+    int count = 0;
+    if (ids.size() <= 3) for (int id : ids) selection[(size_t)count++] = id;
+    const auto found = ids.size() <= 3 ? alchemy::find_recipe(selection, count) : std::nullopt;
+    if (!found) {
+        scene.particles.smoke(bowl_surface(), 14, V(0.6f, 0.6f, 0.6f));
+        ui.set_status(ids.size() > 3 ? "Too many ingredients: the mixture fizzles out." : "No known reaction: the mixture fizzles out.");
+        return;
     }
 
     const alchemy::recipe_t& recipe = alchemy::recipes[*found];
@@ -158,7 +189,7 @@ void brew_t::brew()
         case alchemy::result_kind::secret:  flash_color = V(0.7f, 0.3f, 1.0f); break;
     }
     flash = 1.0f;
-    scene.particles.fountain(bowl->pos + V(0.0f, 0.2f, 0.0f), 90, flash_color);
+    scene.particles.fountain(bowl_surface(), 90, flash_color);
 }
 
 std::vector<std::string> brew_t::loose() const
@@ -197,7 +228,9 @@ void brew_t::scatter_loose(gl::f32 half_x, gl::f32 y0, gl::f32 y1, gl::f32 half_
     for (const std::string& name : loose()) {
         object_t& o = scene.objects[name];
         phys::rigid_t& r = scene.rigids.bodies[(size_t)o.rigid];
-        r.pos = V(rand(-half_x, half_x), rand(y0, y1), rand(-half_z, half_z));
+        // never into the cauldron, it would eat them
+        do r.pos = V(rand(-half_x, half_x), rand(y0, y1), rand(-half_z, half_z));
+        while (std::fabs(r.pos.x - bowl_centre.x) < 1.3f && std::fabs(r.pos.z - bowl_centre.z) < 1.3f);
         r.vel = r.angvel = V();
         o.pos = r.pos;
     }
@@ -330,15 +363,16 @@ void brew_t::update(gl::f32 dt)
 void brew_t::update_particles(gl::f32 dt)
 {
     particles_t& ps = scene.particles;
-    const bool full = bowl != nullptr && !bowl->inside.empty();
+    const bool full = bowl != nullptr && (!mix.empty() || primed);
 
     // the cauldron: thin steam always, bubbles that pop on the surface when there is something in it
     if (bowl != nullptr) {
-        const V surface = V(bowl->pos.x, bowl->pos.y + bowl->half.y * 0.4f, bowl->pos.z);
+        const V surface = bowl_surface();
+        const gl::f32 spread = bowl->half.x * 0.75f;
         steam_acc += dt * (full ? 40.0f : 14.0f);
         for (; steam_acc >= 1.0f; steam_acc -= 1.0f) {
             particle_t p;
-            p.pos = surface + V(rand(-0.22f, 0.22f), 0.0f, rand(-0.22f, 0.22f));
+            p.pos = surface + V(rand(-spread, spread), 0.0f, rand(-spread, spread));
             p.vel = V(rand(-0.05f, 0.05f), rand(0.3f, 0.6f), rand(-0.05f, 0.05f));
             p.color = bowl_tint * 0.7f;
             p.life = rand(1.6f, 2.8f);
@@ -347,7 +381,7 @@ void brew_t::update_particles(gl::f32 dt)
             ps.emit(p);
             if (full && rand(0.0f, 1.0f) < 0.4f) { // a bubble: small, bright, short-lived
                 particle_t b = p;
-                b.pos = surface + V(rand(-0.2f, 0.2f), 0.02f, rand(-0.2f, 0.2f));
+                b.pos = surface + V(rand(-spread, spread), 0.02f, rand(-spread, spread));
                 b.vel = V(0.0f, rand(0.1f, 0.3f), 0.0f);
                 b.color = bowl_tint * 1.2f;
                 b.life = rand(0.3f, 0.7f);
@@ -405,30 +439,30 @@ void brew_t::update_lights(gl::f32 dt)
         const gl::f32 flick = 0.85f + 0.10f * std::sin(scene.time * 17.0f + phase) + 0.05f * std::sin(scene.time * 29.0f + 2.0f * phase);
         const V top = o.pos + V(0.0f, r->half.y + 0.05f, 0.0f);
         flames.push_back(top);
-        scene.lights[key] = point_light_t{.pos = top, .color = V(1.0f, 0.55f, 0.2f) * (0.9f * flick), .radius = 3.0f};
+        scene.lights[key] = point_light_t{.pos = top, .color = V(1.0f, 0.55f, 0.2f) * (1.5f * flick), .radius = 4.5f};
     }
 
     // the cauldron: a faint glow, the colour of the ingredients inside it, a flash after a brew
     if (bowl == nullptr) return;
     V tint(0.15f, 0.5f, 0.45f);
     gl::f32 power = 0.35f;
-    if (!bowl->inside.empty()) {
+    if (!mix.empty()) {
         V sum;
-        int n = 0;
-        for (const std::string& name : bowl->inside) {
-            const auto it = ingredient_of.find(name);
-            if (it == ingredient_of.end()) continue;
-            const auto& c = alchemy::ingredient_colors[(size_t)it->second];
+        for (int id : mix) {
+            const auto& c = alchemy::ingredient_colors[(size_t)id];
             sum += V(c[0], c[1], c[2]);
-            ++n;
         }
-        if (n > 0) { tint = sum * (1.0f / (gl::f32)n); power = 1.0f; }
+        tint  = sum * (1.0f / (gl::f32)mix.size());
+        power = 1.0f;
+    } else if (primed) { // lit by a candle, waiting
+        tint  = V(1.0f, 0.55f, 0.2f);
+        power = 1.2f;
     }
     bowl_tint = tint;
     flash = std::max(0.0f, flash - dt / 1.2f);
     tint  = tint + (flash_color - tint) * flash;
     power *= (1.0f + 0.1f * std::sin(scene.time * 3.0f)) + 3.0f * flash;
-    scene.lights["cauldron"] = point_light_t{.pos = bowl->pos + V(0.0f, 0.15f, 0.0f), .color = tint * power, .radius = 3.5f};
+    scene.lights["cauldron"] = point_light_t{.pos = bowl_surface() + V(0.0f, 0.3f, 0.0f), .color = tint * power, .radius = 5.0f};
 }
 
 void brew_t::shake_begin()
@@ -533,7 +567,8 @@ void brew_t::apply(const alchemy::recipe_t& recipe)
                        for (const std::string& name : loose()) {
                            phys::rigid_t& r = scene.rigids.bodies[(size_t)scene.objects[name].rigid];
                            const gl::f32 a = 2.4f * (gl::f32)i;
-                           const V target = bowl_centre + V(0.15f * std::cos(a), 0.1f * (gl::f32)(i % 5), 0.15f * std::sin(a));
+                           const gl::f32 ring = 1.1f + 0.15f * (gl::f32)(i % 3); // around the cauldron, not into it: it would eat them
+                           const V target = V(bowl_centre.x + ring * std::cos(a), 0.5f + 0.15f * (gl::f32)(i % 5), bowl_centre.z + ring * std::sin(a));
                            V v = (target - r.pos) * 4.0f;
                            if (vec3::len(v) > 10.0f) v = vec3::norm(v) * 10.0f;
                            r.vel = v;
