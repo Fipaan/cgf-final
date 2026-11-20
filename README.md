@@ -6,10 +6,21 @@ This is a 3D potion-making game written in [GLFW](https://www.glfw.org/)/C++, an
 
 ## Overall
 
-- [CMake](https://cmake.org/)
+### Required
+
 - C++ compiler
-- [GLFW 3.4](https://www.glfw.org/) (via CMake)
-- [Freetype 2.13.3](https://freetype.org/) (via CMake)
+    * Windows: [MSYS2 UCRT64](https://www.msys2.org/) clang++
+    * Linux:   [clang++](https://clang.llvm.org/)/[g++](https://gcc.gnu.org/)
+- [CMake v3.20](https://cmake.org/)
+
+### Does not require to do anything
+
+- [GLFW v3.4](https://www.glfw.org/) (via CMake)
+- [glad v0.1.36](https://gen.glad.sh/) (generated)
+- [Freetype v2.13.3](https://freetype.org/) (via CMake)
+- [fast_obj v1.3](https://github.com/thisistherk/fast_obj) (embedded)
+- [STB](https://github.com/nothings/stb) family header-only libraries (all embedded)
+    * [stb_image.h v2.32](https://github.com/nothings/stb/blob/master/stb_image.h)
 
 ## Windows Toolchain
 
