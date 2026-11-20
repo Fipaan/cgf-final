@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
 #include <utility>
 
 using namespace math;
@@ -348,6 +349,7 @@ void scene_t::_dispatch_events()
 
 void scene_t::update(gl::f32 dt)
 {
+    time += dt;
     // fixed steps, the player moves first and is then pushed back by what it runs into
     _step_acc += std::min(dt, 0.1f);
     while (_step_acc >= world.step_dt) {
@@ -394,6 +396,31 @@ bool scene_t::draw(gl::f32 aspect)
     shader.uniform("light_diffuse",  light_diffuse.r,  light_diffuse.g,  light_diffuse.b,  light_diffuse.a);
     shader.uniform("light_specular", light_specular.r, light_specular.g, light_specular.b, light_specular.a);
     shader.uniform("shading_mode", (int)shading);
+
+    // atmosphere
+    const vec3_t<gl::f32> up_eye = view.transform_point(vec3_t<gl::f32>(0.0f, 1.0f, 0.0f)) - view.transform_point(vec3_t<gl::f32>());
+    shader.uniform("up_eye", up_eye.x, up_eye.y, up_eye.z);
+    shader.uniform("time", time);
+    shader.uniform("exposure", exposure);
+    shader.uniform("fog_density", fog_density);
+    shader.uniform("fog_color", fog_color.x, fog_color.y, fog_color.z);
+
+    // the point lights nearest to the camera
+    std::vector<const point_light_t *> near_lights;
+    for (const auto& [_name, l] : lights) near_lights.push_back(&l);
+    const size_t used = std::min<size_t>(near_lights.size(), MAX_POINT_LIGHTS);
+    std::partial_sort(near_lights.begin(), near_lights.begin() + (std::ptrdiff_t)used, near_lights.end(),
+        [this](const point_light_t *a, const point_light_t *b) {
+            return vec3::len(a->pos - cam.pos) < vec3::len(b->pos - cam.pos);
+        });
+    shader.uniform("point_count", (GLint)used);
+    for (size_t i = 0; i < used; ++i) {
+        const point_light_t& l = *near_lights[i];
+        const vec3_t<gl::f32> p = view.transform_point(l.pos);
+        shader.uniform(std::format("point_pos[{}]", i), p.x, p.y, p.z);
+        shader.uniform(std::format("point_col[{}]", i), l.color.x, l.color.y, l.color.z);
+        shader.uniform(std::format("point_radius[{}]", i), l.radius);
+    }
 
     return _draw_objects();
 }

@@ -114,6 +114,14 @@ struct trigger_t {
     std::set<std::string> inside; // kept up to date by `scene_t::update`
 };
 
+// a small coloured light (a candle, the glow of the cauldron), see `scene_t::lights`
+struct point_light_t {
+    math::vec3_t<gl::f32> pos;   // world
+    math::vec3_t<gl::f32> color; // colour * intensity, may be above 1
+    gl::f32 radius = 3.0f;       // reaches this far, fades smoothly
+};
+constexpr int MAX_POINT_LIGHTS = 8; // the nearest ones to the camera are used
+
 // result of `scene_t::pick`, `name` is empty if the ray hit nothing that is an object
 struct pick_t {
     std::string name;
@@ -167,6 +175,13 @@ struct scene_t {
     math::color_t light_ambient  = math::color_t(0.2f, 0.2f, 0.2f, 1.0f);
     math::color_t light_diffuse  = math::color_t(0.6f, 0.6f, 0.6f, 1.0f);
     math::color_t light_specular = math::color_t(1.0f, 1.0f, 1.0f, 1.0f);
+    std::map<std::string, point_light_t> lights; // owned by whoever adds them, in world coordinates
+
+    // look of the whole picture
+    gl::f32 time         = 0.0f; // seconds since the start, the lamp flickers with it
+    gl::f32 exposure     = 1.35f;
+    gl::f32 fog_density  = 0.02f;
+    math::vec3_t<gl::f32> fog_color = math::vec3_t<gl::f32>(0.05f, 0.043f, 0.067f);
 
     scene_t();
 

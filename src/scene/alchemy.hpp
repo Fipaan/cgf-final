@@ -61,6 +61,8 @@ struct brew_t {
     std::vector<timer_t> timers;
 
     std::mt19937 rng{1234};
+    gl::f32 flash = 0.0f; // glow of the cauldron after a brew, fades out
+    math::vec3_t<gl::f32> flash_color;
     gl::f32 shake_left = 0.0f, shake_total = 1.0f, shake_amp = 0.0f;
     math::vec3_t<gl::f32> shake_offset;
 
@@ -75,6 +77,8 @@ struct brew_t {
 
     // E on the cauldron or on a bottle inside it
     void brew();
+    // candle flames and the cauldron glow as scene lights, every frame
+    void update_lights(gl::f32 dt);
     void apply(const alchemy::recipe_t& recipe);
     std::string contents() const; // "Growth + Speed", empty if nothing is inside
 

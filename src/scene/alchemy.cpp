@@ -142,6 +142,16 @@ void brew_t::brew()
     const alchemy::recipe_t& recipe = alchemy::recipes[*found];
     ui.record_recipe(recipe);
     apply(recipe);
+
+    // the cauldron flashes in the colour of what came out
+    switch (recipe.kind) {
+        case alchemy::result_kind::basic:   flash_color = V(1.0f, 0.8f, 0.4f); break;
+        case alchemy::result_kind::success: flash_color = V(0.3f, 1.0f, 0.5f); break;
+        case alchemy::result_kind::danger:  flash_color = V(1.0f, 0.45f, 0.1f); break;
+        case alchemy::result_kind::failure: flash_color = V(0.5f, 0.5f, 0.55f); break;
+        case alchemy::result_kind::secret:  flash_color = V(0.7f, 0.3f, 1.0f); break;
+    }
+    flash = 1.0f;
 }
 
 std::vector<std::string> brew_t::loose() const
@@ -304,6 +314,46 @@ void brew_t::update(gl::f32 dt)
     for (timer_t& t : finished) if (t.on_end) t.on_end();
 
     if (shake_left > 0.0f) shake_left = std::max(0.0f, shake_left - dt);
+    update_lights(dt);
+}
+
+void brew_t::update_lights(gl::f32 dt)
+{
+    // every lit candle is a small flickering light
+    for (const auto& [name, o] : scene.objects) {
+        if (!name.starts_with("candle") || name.contains('/')) continue;
+        const std::string key = "candle:" + name;
+        const object_t *flame = scene.get(name + "/Flame_Core");
+        const phys::rigid_t *r = scene.rigid_of(o);
+        if (flame == nullptr || !flame->visible || r == nullptr) { scene.lights.erase(key); continue; }
+
+        const gl::f32 phase = (gl::f32)(std::hash<std::string>{}(name) % 628) / 100.0f;
+        const gl::f32 flick = 0.85f + 0.10f * std::sin(scene.time * 17.0f + phase) + 0.05f * std::sin(scene.time * 29.0f + 2.0f * phase);
+        scene.lights[key] = point_light_t{
+            .pos = o.pos + V(0.0f, r->half.y + 0.05f, 0.0f), .color = V(1.0f, 0.55f, 0.2f) * (0.9f * flick), .radius = 3.0f,
+        };
+    }
+
+    // the cauldron: a faint glow, the colour of the ingredients inside it, a flash after a brew
+    if (bowl == nullptr) return;
+    V tint(0.15f, 0.5f, 0.45f);
+    gl::f32 power = 0.35f;
+    if (!bowl->inside.empty()) {
+        V sum;
+        int n = 0;
+        for (const std::string& name : bowl->inside) {
+            const auto it = ingredient_of.find(name);
+            if (it == ingredient_of.end()) continue;
+            const auto& c = alchemy::ingredient_colors[(size_t)it->second];
+            sum += V(c[0], c[1], c[2]);
+            ++n;
+        }
+        if (n > 0) { tint = sum * (1.0f / (gl::f32)n); power = 1.0f; }
+    }
+    flash = std::max(0.0f, flash - dt / 1.2f);
+    tint  = tint + (flash_color - tint) * flash;
+    power *= (1.0f + 0.1f * std::sin(scene.time * 3.0f)) + 3.0f * flash;
+    scene.lights["cauldron"] = point_light_t{.pos = bowl->pos + V(0.0f, 0.15f, 0.0f), .color = tint * power, .radius = 3.5f};
 }
 
 void brew_t::shake_begin()

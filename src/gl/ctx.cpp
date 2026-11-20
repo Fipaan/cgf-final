@@ -31,6 +31,7 @@ bool gl::glfw_ctx_t::init()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
+    glfwWindowHint(GLFW_SAMPLES, 4); // MSAA, smooths the edges of everything in the 3D scene
 
     initialized = true;
 

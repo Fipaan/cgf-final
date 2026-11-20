@@ -76,6 +76,7 @@ struct app_t {
         ctx.set_vsync(true);
 
         glEnable(GL_DEPTH_TEST);
+        glEnable(GL_MULTISAMPLE);
         ctx.clear_color(0x0D0B11FF);
         return true;
     }
