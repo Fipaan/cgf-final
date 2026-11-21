@@ -237,7 +237,7 @@ bool gl::text_t::draw(const std::string& text, vec2_t<f32> pos, f32 height, colo
         shader.uniform(m_type_t::m4x4, "proj", 1, gl_bool::FALSE, proj);
         shader.uniform("glyph", (GLint)0);
     }
-    shader.uniform("color", color.r, color.g, color.b);
+    shader.uniform("color", color.r, color.g, color.b, color.a);
 
     if (!vao.bind()) return false;
     if (!vbo_xyuv.init_buffer(std::span<f32>(quads), dsu_t::stream_draw)) return false;
