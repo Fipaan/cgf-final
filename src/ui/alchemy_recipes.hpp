@@ -31,7 +31,8 @@ inline constexpr std::array<std::array<float, 3>, 6> ingredient_colors = {{
     {0.33f, 0.82f, 0.62f}
 }};
 
-inline constexpr std::array<recipe_t, 24> recipes = {{
+// TODO: growth + shrink may cause player to fall out of bounds
+inline constexpr std::array<recipe_t, 27> recipes = {{
     {"growth", "Growth Potion", "Player or object becomes 2x larger.", result_kind::basic, {0, -1, -1}, 1},
     {"shrink", "Shrink Potion", "Player or object shrinks to 50%.", result_kind::basic, {1, -1, -1}, 1},
     {"speed", "Speed Potion", "Player movement speed becomes 2x.", result_kind::basic, {2, -1, -1}, 1},
@@ -55,7 +56,11 @@ inline constexpr std::array<recipe_t, 24> recipes = {{
     {"reverse_explosion", "Reverse Explosion", "Scattered objects return to the cauldron.", result_kind::success, {4, 5, -1}, 2},
     {"room_chaos", "Room Chaos", "Object sizes and positions change for 20s.", result_kind::secret, {0, 1, 3}, 3},
     {"apocalypse", "Apocalypse", "Huge explosion, enlarged objects and camera shake.", result_kind::secret, {0, 2, 4}, 3},
-    {"time_rewind", "Time Rewind", "Restore objects and teleport player to spawn.", result_kind::secret, {1, 3, 5}, 3}
+    {"time_rewind", "Time Rewind", "Restore objects and teleport player to spawn.", result_kind::secret, {1, 3, 5}, 3},
+    // how the world is drawn: the shading mode is only changed by these
+    {"shade_normals", "Prismatic Sight", "The world shows its surface normals as colours.", result_kind::secret, {2, 3, 4}, 3},
+    {"shade_gouraud", "Soft Focus", "Light is computed per vertex (Gouraud shading).", result_kind::secret, {0, 1, 5}, 3},
+    {"shade_phong", "True Sight", "Light is computed per pixel (Phong shading).", result_kind::secret, {0, 2, 5}, 3}
 }};
 
 // `selection` is the first `count` ingredient ids in any order, nullopt if no recipe matches

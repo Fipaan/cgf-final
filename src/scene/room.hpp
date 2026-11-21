@@ -20,7 +20,7 @@ constexpr gl::f32 TABLE_TOP = 0.81f;
 constexpr gl::f32 SHELF_TOP = 0.43f;
 
 // how much bigger than the model the cauldron is
-constexpr gl::f32 CAULDRON_SCALE = 1.5f;
+constexpr gl::f32 CAULDRON_SCALE = 1.9f;
 
 namespace room {
     // Cube shelf unit: a grid of open cells made of boards.
@@ -65,6 +65,8 @@ namespace room {
     // the cauldron in the middle: returns the trigger over the inside of the bowl
     trigger_t *build_cauldron(scene_t& scene);
     void build_furniture(scene_t& scene);
+    // where the hidden vial stands: an empty cell of the first shelf, on the floor of the cell
+    math::vec3_t<gl::f32> vial_position();
     void apply_lighting(scene_t& scene);
 
     // the whole alchemy lab: shell, cauldron in the middle, tables, chairs, door, shelves with potions.

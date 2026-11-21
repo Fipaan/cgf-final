@@ -6,6 +6,7 @@
 #include <set>
 #include <string_view>
 
+#include <audio/sfx.hpp>
 #include <scene/room.hpp>
 
 using namespace math;
@@ -60,7 +61,13 @@ void brew_t::setup(trigger_t *bowl_trigger, V spawn_point)
             const auto it = ingredient_of.find(self);
             if (it != ingredient_of.end()) ui.set_status(std::format("{} essence.", alchemy::ingredients[(size_t)it->second]));
         };
+        scene.objects[name].on_collision = [this](scene_t&, const std::string& self, const std::string&, gl::f32 impulse) {
+            clink(self, impulse);
+        };
     }
+
+    // the hidden vial is made after the bottles, so it never gets an ingredient
+    spawn_vial();
 
     // the cauldron: E on its body or on the bowl, and only bottles count as what is inside
     for (auto& [name, o] : scene.objects) {
@@ -70,7 +77,7 @@ void brew_t::setup(trigger_t *bowl_trigger, V spawn_point)
     }
     if (bowl != nullptr) {
         // bottles and candles count, everything else (chairs, the player's trash) just sits in the bowl
-        bowl->filter   = [this](const std::string& name, const object_t&) { return ingredient_of.contains(name) || is_candle(name); };
+        bowl->filter   = [this](const std::string& name, const object_t&) { return ingredient_of.contains(name) || is_candle(name) || name == VIAL_NAME; };
         bowl->on_enter = [this](scene_t&, const std::string&, const std::string& object) { throw_in(object); };
     }
 
@@ -85,6 +92,46 @@ void brew_t::setup(trigger_t *bowl_trigger, V spawn_point)
         home[name] = home_t{.pos = o.pos, .scale = o.scale, .orient = o.orient};
         parts_of[o.parent].push_back(name);
     }
+}
+
+void brew_t::spawn_vial()
+{
+    // the model of a bottle, bigger, with silvery liquid that glows: nothing like the six essences
+    object_t *vial = scene.place_model("Potion_Blue", VIAL_NAME, model_desc_t{
+        .pos = room::vial_position(), .yaw = 0.4f, .scale = 1.3f, .body = body_kind_t::dynamic, .restitution = 0.2f});
+    if (vial == nullptr) return;
+
+    for (auto& [part_name, part] : scene.objects) {
+        if (part.parent != VIAL_NAME || !part_name.ends_with("_Elixir")) continue;
+        if (!scene.materials.contains("elixir/vial")) {
+            material_t m = scene.materials.at(part.material);
+            m.diffuse  = color_t(0.82f, 0.90f, 1.0f, 1.0f);
+            m.ambient  = color_t(2.2f, 2.4f, 2.6f, 1.0f); // above the diffuse: the rest is emission
+            m.specular = color_t(1.0f, 1.0f, 1.0f, 1.0f);
+            scene.add_material("elixir/vial", m);
+        }
+        part.material = "elixir/vial";
+    }
+
+    vial->prompt      = "Inspect";
+    vial->on_interact = [this](scene_t&, const std::string&) {
+        ui.set_status(std::format("{}. It hums, as if it remembered how everything was.", VIAL_TITLE));
+    };
+    vial->on_collision = [this](scene_t&, const std::string& self, const std::string&, gl::f32 impulse) {
+        clink(self, impulse);
+    };
+}
+
+void brew_t::play(const char *name, const std::string& owner, std::optional<V> at, gl::f32 gain, gl::f32 min_gap)
+{
+    if (sfx != nullptr && ui.game_interactive()) sfx->play(name, {.owner = owner, .at = at, .gain = gain, .min_gap = min_gap});
+}
+
+void brew_t::clink(const std::string& bottle, gl::f32 impulse)
+{
+    if (impulse < 0.04f) return;
+    const object_t *o = scene.get(bottle);
+    play("glass_clink", bottle, o != nullptr ? std::optional<V>(o->pos) : std::nullopt, std::clamp(impulse / 0.25f, 0.25f, 1.0f), 0.12f);
 }
 
 bool brew_t::is_candle(const std::string& name) const
@@ -105,17 +152,29 @@ std::string brew_t::contents() const
     return text;
 }
 
+void brew_t::set_present(const std::string& name, bool present)
+{
+    object_t *o = scene.get(name);
+    if (o == nullptr) return;
+    o->visible = present;
+    if (phys::rigid_t *r = scene.rigid_of(*o)) {
+        r->enabled = present;
+        r->held    = false;
+        r->vel = r->angvel = V();
+    }
+    if (const auto parts = parts_of.find(name); parts != parts_of.end()) {
+        for (const std::string& part : parts->second) {
+            if (object_t *p = scene.get(part)) p->visible = present;
+        }
+    }
+}
+
 void brew_t::eat(const std::string& name)
 {
     if (bowl != nullptr) bowl->inside.erase(name); // so it doesn't "leave" next frame
-    ingredient_of.erase(name);
-    home.erase(name);
     scene.lights.erase("candle:" + name);
-    if (const auto parts = parts_of.find(name); parts != parts_of.end()) {
-        for (const std::string& part : parts->second) home.erase(part);
-        parts_of.erase(parts);
-    }
-    scene.remove(name);
+    eaten.insert(name);
+    set_present(name, false);
 }
 
 constexpr int EXPLOSION_ID = 4; // index of "Explosion" in `alchemy::ingredients`
@@ -124,8 +183,16 @@ void brew_t::throw_in(const std::string& object)
 {
     if (bowl == nullptr) return;
 
+    if (object == VIAL_NAME) {
+        eat(object);
+        play("splash", "cauldron", bowl_surface());
+        hard_reset();
+        return;
+    }
+
     if (is_candle(object)) {
         eat(object);
+        play("candle_snuff", "cauldron", bowl_surface());
         scene.particles.sparks(bowl_surface(), 30, 3.0f, V(1.0f, 0.6f, 0.2f));
         if (!mix.empty()) { brew(); return; }              // the flame sets off what is in there
         if (primed) {                                      // a second flame is just explosion essence
@@ -143,6 +210,7 @@ void brew_t::throw_in(const std::string& object)
     if (it == ingredient_of.end()) return;
     const int id = it->second;
     eat(object);
+    play("splash", "cauldron", bowl_surface());
     mix.push_back(id);
 
     const auto& c = alchemy::ingredient_colors[(size_t)id];
@@ -196,7 +264,7 @@ std::vector<std::string> brew_t::loose() const
 {
     std::vector<std::string> names;
     for (const auto& [name, o] : scene.objects) {
-        if (o.rigid >= 0 && o.parent.empty() && home.contains(name)) names.push_back(name);
+        if (o.rigid >= 0 && o.parent.empty() && home.contains(name) && !eaten.contains(name)) names.push_back(name);
     }
     return names;
 }
@@ -312,6 +380,85 @@ void brew_t::reset_player()
     player.jump_mult  = 1.0f;
 }
 
+void brew_t::hard_reset()
+{
+    cancel_timers();
+    mix.clear();
+    primed = false;
+    shake_left = 0.0f;
+
+    // what the cauldron ate comes back (the vial too), then everything goes to its place
+    for (const std::string& name : eaten) set_present(name, true);
+    eaten.clear();
+    restore_objects();
+    reset_player();
+    player.teleport(spawn);
+
+    // candles lit again, the rug whole, the lamp and the shading as at the start
+    for (const auto& [name, o] : scene.objects) {
+        if (!is_candle(name)) continue;
+        scene.objects[name].prompt = "Snuff out";
+        if (const auto parts = parts_of.find(name); parts != parts_of.end()) {
+            for (const std::string& part : parts->second) {
+                if (object_t *p = scene.get(part)) p->visible = true;
+            }
+        }
+    }
+    if (object_t *rug = scene.get("rug")) rug->visible = true;
+    burn_time.clear();
+    room::apply_lighting(scene);
+    scene.shading = shading_t::phong;
+
+    flash_color = V(0.85f, 0.92f, 1.0f);
+    flash = 1.0f;
+    scene.particles.fountain(bowl_surface(), 120, flash_color);
+    ui.set_status("Everything is back the way it was.");
+}
+
+void brew_t::burn_rug(object_t& rug)
+{
+    rug.visible = false;
+    play("carpet_burn", "rug", rug.pos);
+    for (int i = 0; i < 10; ++i) {
+        const V at = rug.pos + V(rand(-rug.scale.x, rug.scale.x), 0.05f, rand(-rug.scale.z, rug.scale.z));
+        scene.particles.sparks(at, 14, 2.2f, V(1.0f, 0.5f, 0.15f));
+        scene.particles.smoke(at, 6, V(0.25f, 0.22f, 0.2f));
+    }
+    ui.set_status("The candle has set the rug on fire. It burns away.");
+}
+
+void brew_t::update_rug(gl::f32 dt)
+{
+    object_t *rug = scene.get("rug");
+    if (rug == nullptr || !rug->visible) return;
+
+    for (const auto& [name, o] : scene.objects) {
+        if (!is_candle(name) || eaten.contains(name)) continue;
+        const phys::rigid_t *r = scene.rigid_of(o);
+        const object_t *flame = scene.get(name + "/Flame_Core");
+
+        bool burning = false;
+        if (r != nullptr && flame != nullptr && flame->visible) {
+            const V d = r->pos - rug->pos;
+            const bool on_rug = std::fabs(d.x) < rug->scale.x && std::fabs(d.z) < rug->scale.z && d.y < 0.3f;
+            const gl::f32 up = phys::rotate(r->orient, V(0.0f, 1.0f, 0.0f)).y; // 1 standing, 0 on its side
+            burning = on_rug && std::fabs(up) < 0.6f && vec3::len(r->vel) < 0.6f;
+        }
+
+        gl::f32& seconds = burn_time[name];
+        seconds = burning ? seconds + dt : 0.0f;
+        if (burning && rand(0.0f, 1.0f) < 8.0f * dt) { // it smoulders before it goes
+            scene.particles.smoke(r->pos, 1, V(0.3f, 0.27f, 0.25f));
+            scene.particles.sparks(r->pos, 2, 0.5f, V(1.0f, 0.45f, 0.1f));
+        }
+        if (seconds >= RUG_BURN_SECONDS) {
+            burn_rug(*rug);
+            burn_time.clear();
+            return;
+        }
+    }
+}
+
 void brew_t::restore_all()
 {
     cancel_timers();
@@ -356,6 +503,14 @@ void brew_t::update(gl::f32 dt)
     for (timer_t& t : finished) if (t.on_end) t.on_end();
 
     if (shake_left > 0.0f) shake_left = std::max(0.0f, shake_left - dt);
+    update_rug(dt);
+
+    // the cauldron bubbles all the time (the mixer makes it quieter with the distance), louder with something in
+    // it, and far in the background while a menu is open
+    if (sfx != nullptr && bowl != nullptr) {
+        const gl::f32 gain = ((mix.empty() && !primed) ? 0.45f : 1.0f) * (ui.game_interactive() ? 1.0f : 0.15f);
+        sfx->loop("bubble", {.owner = "cauldron", .at = bowl_centre, .gain = gain}, true);
+    }
     update_lights(dt);
     update_particles(dt);
 }
@@ -389,6 +544,21 @@ void brew_t::update_particles(gl::f32 dt)
                 b.alpha = 0.8f; b.drag = 0.0f;
                 ps.emit(b);
             }
+        }
+    }
+
+    // glints rising from the hidden vial
+    if (const object_t *vial = scene.get(VIAL_NAME); vial != nullptr && vial->visible) {
+        glint_acc += dt * 7.0f;
+        for (; glint_acc >= 1.0f; glint_acc -= 1.0f) {
+            particle_t p;
+            p.pos = vial->pos + V(rand(-0.08f, 0.08f), rand(0.0f, 0.45f), rand(-0.08f, 0.08f));
+            p.vel = V(rand(-0.03f, 0.03f), rand(0.08f, 0.2f), rand(-0.03f, 0.03f));
+            p.color = V(0.75f, 0.88f, 1.0f);
+            p.life = rand(1.0f, 1.8f);
+            p.size0 = 0.018f; p.size1 = 0.002f;
+            p.alpha = 0.9f; p.drag = 0.2f;
+            ps.emit(p);
         }
     }
 
@@ -442,6 +612,15 @@ void brew_t::update_lights(gl::f32 dt)
         scene.lights[key] = point_light_t{.pos = top, .color = V(1.0f, 0.55f, 0.2f) * (1.5f * flick), .radius = 4.5f};
     }
 
+    // the hidden vial glows by itself
+    const object_t *vial = scene.get(VIAL_NAME);
+    if (vial != nullptr && vial->visible) {
+        const gl::f32 pulse = 0.85f + 0.15f * std::sin(scene.time * 2.2f);
+        scene.lights["vial"] = point_light_t{.pos = vial->pos + V(0.0f, 0.3f, 0.0f), .color = V(0.6f, 0.78f, 1.0f) * pulse, .radius = 2.5f};
+    } else {
+        scene.lights.erase("vial");
+    }
+
     // the cauldron: a faint glow, the colour of the ingredients inside it, a flash after a brew
     if (bowl == nullptr) return;
     V tint(0.15f, 0.5f, 0.45f);
@@ -482,9 +661,17 @@ void brew_t::shake_end()
 
 void brew_t::apply(const alchemy::recipe_t& recipe)
 {
+    const std::string_view id = recipe.id;
+
+    // shading potions only change how the world is drawn: what the last potion was doing goes on
+    if (id.starts_with("shade_")) {
+        scene.shading = id == "shade_normals" ? shading_t::normals : id == "shade_gouraud" ? shading_t::gouraud : shading_t::phong;
+        play("chime", "potion");
+        return;
+    }
+
     // a new potion ends what the last one was doing
     cancel_timers();
-    const std::string_view id = recipe.id;
     const auto all = [](gl::f32 s) { return [s](const std::string&) { return s; }; };
 
     // base potions

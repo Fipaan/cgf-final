@@ -7,6 +7,8 @@
 #include <core/audio/miniaudio.hpp>
 #include <core/audio/dr.hpp>
 #include <core/gl/first.hpp>
+#include <functional>
+#include <mutex>
 #include <vector>
 
 namespace audio {
@@ -22,6 +24,10 @@ struct ma_device_t {
     bool initialized = false;
     ma_device device;
     std::vector<sound_t*> sounds;
+    // the callback runs on the audio thread: whoever seeks or changes a sound while the device plays takes it
+    std::mutex lock;
+    // more sound mixed into the output (`out` has the sounds above in it already), called with `lock` held
+    std::function<void(float *out, ma_uint32 frame_count)> extra_mix;
     
     float *out_buffer;
     float out_buffer_size;
@@ -47,6 +53,8 @@ struct sound_t {
     // TODO: store converters in ma_device_t and use hash maps to access them
     ma_data_converter converter;
     gl::f32 volume;
+    bool loop = false; // wraps around instead of going silent at the end
+    ma_uint64 frame_count = 0; // set by `load`, counting them again means decoding the whole file
 
     sound_t(gl::f32 volume = 1.0f);
     ~sound_t();

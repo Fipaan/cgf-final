@@ -255,6 +255,13 @@ void room::build_furniture(scene_t& scene)
 }
 
 // dark: the lamp is only a faint glow, the candles and the cauldron are what lights the room
+// the shelves leave every 4th cell empty, (0, 1) of 3 x 3 is one of them
+math::vec3_t<gl::f32> room::vial_position()
+{
+    const shelf_t shelf{.origin = {-5.5f, 0.0f, -ROOM_Z}, .facing = {0.0f, 0.0f, 1.0f}, .cols = 3, .rows = 3};
+    return shelf.cell_floor(0, 1) + math::vec3_t<gl::f32>(0.0f, 0.005f, 0.0f);
+}
+
 void room::apply_lighting(scene_t& scene)
 {
     scene.lamp = cyl_t{0.0f, 0.4f, 2.4f};

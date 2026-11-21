@@ -1,3 +1,15 @@
 # Credits
 
 - explosion.mp3: [Cartoon Explosion - Universfield](https://pixabay.com/sound-effects/film-special-effects-cartoon-explosion-567193/)
+- door_thud.mp3: [Door Closed - DRAGON-STUDIO](https://pixabay.com/sound-effects/household-door-closed-382707/)
+- candle_light.mp3: [Match Lighting Candle - freesound_community](https://pixabay.com/sound-effects/film-special-effects-match-lighting-candle-81020/)
+- candle_snuff.mp3: [Candle Blow Out - kai_audio](https://pixabay.com/sound-effects/film-special-effects-candle-blow-out-446030/) (cutted)
+- glass_clink.mp3: [Bottle Glass Hit 1 - SoundReality](https://pixabay.com/sound-effects/film-special-effects-bottle-glass-hit-1-580252/)
+- glass_pick.mp3: [Bottle Glass Hit 2 - SoundReality](https://pixabay.com/sound-effects/film-special-effects-bottle-glass-hit-2-580253/)
+- step_a.mp3: [St1 - Footstep sfx - Yarzur_ofc](https://pixabay.com/sound-effects/film-special-effects-st1-footstep-sfx-323053/)
+- step_b.mp3: [St2 - Footstep sfx - Yarzur_ofc](https://pixabay.com/sound-effects/film-special-effects-st2-footstep-sfx-323055/)
+- cauldron_bubble.mp3: [cauldron bubbling 2 - LazyChillZone](https://pixabay.com/sound-effects/film-special-effects-cauldron-bubbling-2-232443/)
+- chime.mp3: [Magic Spell 1 - LazyChillZone](https://pixabay.com/sound-effects/film-special-effects-magic-spell-1-232441/)
+- splash.mp3: [water_drop - freesound_community](https://pixabay.com/sound-effects/film-special-effects-water-drop-6707/)
+- carpet_burn.mp3: [Fire Flame Rush - ZenoWaves](https://pixabay.com/sound-effects/film-special-effects-fire-flame-rush-628045/)
+- door_rattle.mp3: [Door rattles, wood, 2011 - freesound_community](https://pixabay.com/sound-effects/household-door-rattles-wood-2011-94336/) (cutted)

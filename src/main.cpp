@@ -18,6 +18,7 @@
 #include <scene/room.hpp>
 #include <scene/alchemy.hpp>
 #include <audio/audio.hpp>
+#include <audio/sfx.hpp>
 
 using namespace math;
 using namespace audio;
@@ -36,6 +37,7 @@ struct app_t {
     drag_t      drag;
     brew_t      brew;
     ma_device_t playback_device;
+    audio::sfx_t sfx;
 
     // what E would do for the object under the crosshair, empty = nothing
     std::string interact_prompt;
@@ -51,7 +53,8 @@ struct app_t {
         alchemy_ui(gui),
         player(scene),
         drag(scene),
-        brew(scene, player, alchemy_ui)
+        brew(scene, player, alchemy_ui),
+        sfx(playback_device)
     {}
 
     // TODO: sounds shouldn't be here, probably map names to sounds?
@@ -68,6 +71,7 @@ struct app_t {
         if (!playback_device.start()) return false;
 
         if (!playback_device.load(explosion, "assets/sound/explosion.mp3")) return false;
+        load_sounds();
 
         // the models of the lab, then the lab itself
         for (const std::string& name : room::model_names) {
@@ -80,7 +84,12 @@ struct app_t {
         const vec3_t<gl::f32> spawn(0, 0, 4.5f);
         player.spawn(spawn);
         setup_interactions();
+        brew.sfx = &sfx;
         brew.setup(bowl, spawn); // potions, the cauldron and what they do
+        drag.on_grab = [this](const std::string& name) {
+            const object_t *o = scene.get(name);
+            if (o != nullptr && o->mesh.starts_with("Potion_")) sound("glass_pick", name, o->pos);
+        };
 
         if (!draw2d.init()) return false;
         FT_Long face_index = 0;
@@ -92,6 +101,58 @@ struct app_t {
         glEnable(GL_MULTISAMPLE);
         ctx.clear_color(0x0D0B11FF);
         return true;
+    }
+
+    // a missing file is logged and that sound just stays silent
+    void load_sounds()
+    {
+        struct entry_t { const char *name, *file; gl::f32 volume; };
+        const entry_t entries[] = {
+            {"candle_snuff",  "assets/sound/candle_snuff.mp3",    0.10f},
+            {"candle_light",  "assets/sound/candle_light.mp3",    0.40f},
+            {"door_rattle",   "assets/sound/door_rattle.mp3",     0.50f},
+            {"door_thud",     "assets/sound/door_thud.mp3",       0.60f},
+            {"glass_pick",    "assets/sound/glass_pick.mp3",      0.35f},
+            {"glass_clink",   "assets/sound/glass_clink.mp3",     0.35f},
+            {"step_a",        "assets/sound/step_a.mp3",          0.08f},
+            {"step_b",        "assets/sound/step_b.mp3",          0.08f},
+            {"bubble",        "assets/sound/cauldron_bubble.mp3", 0.30f},
+            {"splash",        "assets/sound/splash.mp3",          0.45f},
+            {"chime",         "assets/sound/chime.mp3",           0.40f},
+            {"carpet_burn",   "assets/sound/carpet_burn.mp3",     0.60f},
+        };
+        for (const entry_t& e : entries) sfx.load(e.name, e.file, e.volume);
+    }
+
+    // `owner` is the object that makes the sound, `at` where it is (none = at the listener). Only while the game
+    // runs, not in the menus
+    void sound(const char *name, const std::string& owner, std::optional<vec3_t<gl::f32>> at = std::nullopt,
+               gl::f32 gain = 1.0f, gl::f32 min_gap = 0.0f)
+    {
+        if (alchemy_ui.game_interactive()) sfx.play(name, {.owner = owner, .at = at, .gain = gain, .min_gap = min_gap});
+    }
+
+    // a step every stride on the ground, a stride is longer for a big player
+    gl::f32 step_distance = 0.0f;
+    bool    step_left     = false;
+    void update_footsteps()
+    {
+        phys::body_t& body = player.get_body();
+        if (!alchemy_ui.game_interactive() || player.mode != cam_mode_t::fps || !body.on_ground) {
+            step_distance = 0.0f;
+            return;
+        }
+        const gl::f32 speed = std::hypot(body.vel.x, body.vel.z);
+        if (speed < 0.5f) {
+            step_distance = 0.0f;
+            return;
+        }
+        step_distance += speed * ctx.last_frame;
+        if (step_distance >= 1.4f * player.scale) {
+            step_distance = 0.0f;
+            step_left = !step_left;
+            sound(step_left ? "step_a" : "step_b", "player", std::nullopt, std::clamp(0.5f + 0.5f * speed / 6.0f, 0.5f, 1.0f));
+        }
     }
 
     // How objects of the lab react: E (candles, the door), a collision (the door). The cauldron and the
@@ -110,6 +171,7 @@ struct app_t {
                 for (const char *flame : {"/Flame_Amber", "/Flame_Core"}) {
                     if (object_t *part = s.get(self + flame)) part->visible = lit;
                 }
+                sound(lit ? "candle_light" : "candle_snuff", self, candle->pos);
                 alchemy_ui.set_status(lit ? "The candle flickers back to life." : "The candle is out.");
             };
         }
@@ -117,9 +179,15 @@ struct app_t {
         // E and collision: the door is locked
         if (object_t *door = scene.get("door")) {
             door->prompt      = "Open";
-            door->on_interact = [this](scene_t&, const std::string&) { alchemy_ui.set_status("The door is locked."); };
-            door->on_collision = [this](scene_t&, const std::string&, const std::string& other, gl::f32 impulse) {
-                if (impulse > 0.5f) alchemy_ui.set_status(std::format("THUD! {} hit the door.", other));
+            door->on_interact = [this](scene_t& s, const std::string& self) {
+                sound("door_rattle", self, s.get(self)->pos);
+                alchemy_ui.set_status("The door is locked.");
+            };
+            door->on_collision = [this](scene_t& s, const std::string& self, const std::string& other, gl::f32 impulse) {
+                if (impulse > 0.5f) {
+                    sound("door_thud", self, s.get(self)->pos, std::clamp(impulse / 3.0f, 0.4f, 1.0f), 0.15f);
+                    alchemy_ui.set_status(std::format("THUD! {} hit the door.", other));
+                }
             };
         }
     }
@@ -165,10 +233,6 @@ struct app_t {
         if (in.key_held(gl::kb_key_t::period)) scene.lamp.radius += k;
         if (in.key_held(gl::kb_key_t::comma))  scene.lamp.radius -= k;
         scene.lamp.radius = std::max(scene.lamp.radius, 0.1f);
-
-        if (in.key_hit(gl::kb_key_t::key_1)) scene.shading = shading_t::normals;
-        if (in.key_hit(gl::kb_key_t::key_2)) scene.shading = shading_t::gouraud;
-        if (in.key_hit(gl::kb_key_t::key_3)) scene.shading = shading_t::phong;
 
         // HUD text size
         if (in.key_held(gl::kb_key_t::x) && hud_text_size > 0.0f) hud_text_size -= 1.0f;
@@ -237,6 +301,8 @@ struct app_t {
         drag.update(ctx.input, ctx.last_frame);
         scene.update(ctx.last_frame);
         player.update();
+        update_footsteps();
+        sfx.set_listener(scene.cam.pos, scene.cam.right());
         brew.update(ctx.last_frame);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

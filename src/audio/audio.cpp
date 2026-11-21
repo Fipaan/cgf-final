@@ -2,6 +2,7 @@
 
 #include <core/log.hpp>
 #include <cassert>
+#include <cmath>
 
 using namespace audio;
 
@@ -61,6 +62,7 @@ void ma_device_t::add(sound_t& sound)
 bool ma_device_t::load(sound_t& sound, std::string_view path, sound_type_t type)
 {
     if (!sound.load(path, type, device.playback.channels, device.sampleRate)) return false;
+    std::lock_guard<std::mutex> guard(lock); // the callback may be running already
     add(sound);
     return true;
 }
@@ -70,6 +72,7 @@ void ma_device_t::callback(gl::f32* out, ma_uint32 frame_count)
     assert(initialized);
     assert(device.playback.format == ma_format_f32);
 
+    std::lock_guard<std::mutex> guard(lock);
     for (auto sound_ptr : sounds) {
         auto& sound = *sound_ptr;
 
@@ -81,6 +84,12 @@ void ma_device_t::callback(gl::f32* out, ma_uint32 frame_count)
             out[sample] += out_buffer[sample] * sound.volume;
         }
     }
+
+    if (extra_mix) extra_mix(out, frame_count);
+
+    // soft limiter: a lot at once gets denser, it doesn't clip
+    const ma_uint64 total = (ma_uint64)frame_count * device.playback.channels;
+    for (ma_uint64 i = 0; i < total; ++i) out[i] = std::tanh(out[i]);
 }
 
 void ma_device_t::callback_raw(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
@@ -121,6 +130,7 @@ bool sound_t::load(std::string_view path, sound_type_t type_, ma_uint32 channels
             errorfn("[AUDIO] Failed to open mp3 file \"{}\"", path);
             return false;
         }
+        frame_count = drmp3_get_pcm_frame_count(&as.mp3);
         if (!end()) return false;
         break;
     case SOUND_NONE:
@@ -201,6 +211,14 @@ bool sound_t::read_pcm_frames_f32(ma_uint64 frames_to_read, float *out, ma_uint6
             input_frames,
             input.data()
         );
+        if (loop && input_frames_read < input_frames) {
+            drmp3_seek_to_pcm_frame(&as.mp3, 0);
+            input_frames_read += drmp3_read_pcm_frames_f32(
+                &as.mp3,
+                input_frames - input_frames_read,
+                input.data() + input_frames_read * channels()
+            );
+        }
         break;
     case SOUND_NONE:
     default:         assert(false && "Invalid sound type");
@@ -232,7 +250,7 @@ bool sound_t::seek_to_pcm_frame(ma_uint64 frame_index)
 ma_uint64 sound_t::get_pcm_frame_count()
 {
     switch (type) {
-    case SOUND_MP3:  return drmp3_get_pcm_frame_count(&as.mp3);
+    case SOUND_MP3:  return frame_count != 0 ? frame_count : drmp3_get_pcm_frame_count(&as.mp3);
     case SOUND_NONE:
     default:         assert(false && "Invalid sound type");
     }

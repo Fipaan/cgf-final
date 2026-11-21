@@ -48,7 +48,6 @@ static const std::vector<control_section_t> control_sections = {
         {"CLICK",     "Capture the mouse"},
         {"ESC",       "Pause"},
         {"TAB",       "Recipe book"},
-        {"1  2  3",   "Shading: normals / Gouraud / Phong"},
         {"ARROWS  , .", "Move the light"},
         {"F1",        "Hide debug info"},
         {"F3",        "Shadows on / off"},
@@ -131,8 +130,11 @@ void alchemy::ui_t::update()
         if (screen == screen_t::game) {
             codex_return = screen_t::game;
             screen       = screen_t::codex;
+            input.set_mouse_capture(false);
+        } else if (screen == screen_t::codex) {
+            screen = codex_return;
+            input.set_mouse_capture(true);
         }
-        else if (screen == screen_t::codex) screen = codex_return;
     }
 }
 

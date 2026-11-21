@@ -8,13 +8,24 @@
 
 #include <functional>
 #include <map>
+#include <optional>
 #include <random>
+#include <set>
 #include <string>
 #include <vector>
 
 #include <scene/scene.hpp>
 #include <scene/player.hpp>
 #include <ui/alchemy.hpp>
+
+namespace audio { struct sfx_t; }
+
+// the hidden vial: not one of the six ingredients, it is not in the recipe book. Whatever mix it goes into,
+// the cauldron undoes everything (`brew_t::hard_reset`)
+constexpr const char *VIAL_NAME = "reset_vial";
+constexpr const char *VIAL_TITLE = "Quicksilver Vial";
+// a lit candle that lies on its side on the rug this long sets it alight
+constexpr gl::f32 RUG_BURN_SECONDS = 5.0f;
 
 /* Usage:
 ```cpp
@@ -34,6 +45,7 @@ struct brew_t {
     scene_t&       scene;
     player_t&      player;
     alchemy::ui_t& ui;
+    audio::sfx_t  *sfx = nullptr; // optional
 
     trigger_t *bowl = nullptr; // over the inside of the cauldron
     math::vec3_t<gl::f32> spawn;
@@ -54,6 +66,12 @@ struct brew_t {
     };
     std::map<std::string, home_t> home;                              // loose objects and their parts
     std::map<std::string, std::vector<std::string>> parts_of;        // loose object -> its parts
+
+    // what the cauldron has swallowed: switched off and invisible (not deleted), `hard_reset` brings them back
+    std::set<std::string> eaten;
+    // seconds that a lit candle has been lying on the rug, by candle
+    std::map<std::string, gl::f32> burn_time;
+    gl::f32 smolder_acc = 0.0f, glint_acc = 0.0f;
 
     struct timer_t {
         gl::f32 left, period, acc = 0.0f;
@@ -85,7 +103,8 @@ struct brew_t {
 
     // a bottle or a candle fell into the cauldron: it is eaten, a bottle goes into the mix, a candle brews it
     void throw_in(const std::string& object);
-    void eat(const std::string& name);       // removes the object from the world for good
+    void eat(const std::string& name);       // out of the world until the next `hard_reset`
+    void set_present(const std::string& name, bool present); // visible and solid, or neither
     bool is_candle(const std::string& name) const;
     math::vec3_t<gl::f32> bowl_surface() const;
 
@@ -96,6 +115,20 @@ struct brew_t {
     // steam and bubbles over the cauldron, embers over the candles, dust in the lamp light
     void update_particles(gl::f32 dt);
     void apply(const alchemy::recipe_t& recipe);
+    // the hidden vial, on its shelf
+    void spawn_vial();
+    // everything back to how the game started: eaten things, positions, sizes, candles, the rug, the lamp, the
+    // shading, the player. Recipes already found stay found
+    void hard_reset();
+    // the rug of the room burns when a lit candle lies on it
+    void update_rug(gl::f32 dt);
+    void burn_rug(object_t& rug);
+    // a sound of `owner` (the object that makes it), at `at` in the world or at the listener. One-shots only play
+    // while the game is running (not in the menus)
+    void play(const char *name, const std::string& owner, std::optional<math::vec3_t<gl::f32>> at = std::nullopt,
+              gl::f32 gain = 1.0f, gl::f32 min_gap = 0.0f);
+    // a bottle hit something
+    void clink(const std::string& bottle, gl::f32 impulse);
     std::string contents() const; // "Growth + Speed", empty if nothing is inside
 
     // effects, `factor` of the scalers is relative to the starting size

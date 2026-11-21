@@ -14,7 +14,7 @@ constexpr gl::f32 EYE_HEIGHT  = 0.7f;
 constexpr gl::f32 WALK_SPEED  = 5.0f;
 constexpr gl::f32 FLY_SPEED   = 10.0f;
 constexpr gl::f32 SPRINT_MULT = 2.0f;
-constexpr gl::f32 JUMP_SPEED  = 5.5f;
+constexpr gl::f32 JUMP_SPEED  = 4.2f;
 constexpr gl::f32 PLAYER_MASS = 70.0f; // pushes objects around
 
 enum class cam_mode_t { fly, fps };
