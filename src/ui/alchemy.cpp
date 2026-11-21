@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+using namespace math;
+
 constexpr color_t alchemy_bg    (0.055f, 0.063f, 0.083f, 1.0f);
 constexpr color_t alchemy_panel (0.095f, 0.112f, 0.143f, 1.0f);
 constexpr color_t alchemy_tile  (0.16f,  0.19f,  0.23f,  1.0f);
@@ -46,10 +48,9 @@ static const std::vector<control_section_t> control_sections = {
         {"CLICK",     "Capture the mouse"},
         {"ESC",       "Pause"},
         {"TAB",       "Recipe book"},
-        {"1  2  3",   "Shading: normals / Gouraud / Phong"},
-        {"M",         "Cycle the model material"},
         {"ARROWS  , .", "Move the light"},
         {"F1",        "Hide debug info"},
+        {"F3",        "Shadows on / off"},
         {"X  C",      "Debug text size"},
     }},
 };
@@ -129,8 +130,11 @@ void alchemy::ui_t::update()
         if (screen == screen_t::game) {
             codex_return = screen_t::game;
             screen       = screen_t::codex;
+            input.set_mouse_capture(false);
+        } else if (screen == screen_t::codex) {
+            screen = codex_return;
+            input.set_mouse_capture(true);
         }
-        else if (screen == screen_t::codex) screen = codex_return;
     }
 }
 

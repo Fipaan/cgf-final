@@ -93,3 +93,8 @@ GLFWglproc gl::glfwGetProcAddressTrace(const char *procname)
 }
 
 #undef __set_any_gl_error
+
+void gl::gl_first_state_verify()
+{
+    assert(gl::gl_first_state() == gl::gl_first_state_cpp());
+}

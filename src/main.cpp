@@ -1,10 +1,12 @@
 #include <algorithm>
 #include <format>
 #include <string>
+#include <vector>
 
 #include <core/log.hpp>
 #include <core/gl/first.hpp>
 #include <3d/mesh.hpp>
+#include <3d/obj.hpp>
 #include <gl/ctx.hpp>
 #include <gl/draw.hpp>
 #include <gl/text.hpp>
@@ -14,6 +16,12 @@
 #include <scene/player.hpp>
 #include <scene/drag.hpp>
 #include <scene/room.hpp>
+#include <scene/alchemy.hpp>
+#include <audio/audio.hpp>
+#include <audio/sfx.hpp>
+
+using namespace math;
+using namespace audio;
 
 constexpr gl::f32 INTERACT_REACH = 3.0f; // how far E reaches
 
@@ -24,16 +32,15 @@ struct app_t {
     gl::gui_t     gui;
     alchemy::ui_t alchemy_ui;
 
-    scene_t  scene;
-    player_t player;
-    drag_t   drag;
-
-    // `M` cycles the loaded model through `room::prop_materials`
-    size_t model_material = 0;
+    scene_t     scene;
+    player_t    player;
+    drag_t      drag;
+    brew_t      brew;
+    ma_device_t playback_device;
+    audio::sfx_t sfx;
 
     // what E would do for the object under the crosshair, empty = nothing
     std::string interact_prompt;
-    int cans_filled = 0;
 
     bool    hud_visible   = true;
     gl::f32 hud_text_size = 20.0f;
@@ -45,28 +52,44 @@ struct app_t {
         gui(c, draw2d, text),
         alchemy_ui(gui),
         player(scene),
-        drag(scene)
+        drag(scene),
+        brew(scene, player, alchemy_ui),
+        sfx(playback_device)
     {}
 
-    bool init(const char *smf_path)
+    // TODO: sounds shouldn't be here, probably map names to sounds?
+    sound_t explosion = sound_t(0.01f);
+
+    bool init()
     {
-        mesh_t mesh; // loaded model
-        if (!mesh.load_smf(smf_path)) return false;
-        mesh.norm();
-        mesh.compute_normals();
-
         if (!scene.init("shaders/mesh.vert", "shaders/mesh.frag")) return false;
-        if (!scene.add_mesh("model",  mesh))             return false;
-        if (!scene.add_mesh("cube",   mesh_t::cube()))   return false;
-        if (!scene.add_mesh("sphere", mesh_t::sphere())) return false;
-        if (!scene.add_mesh("plane",  mesh_t::plane()))  return false;
+        if (!scene.init_shadows("shaders/shadow.vert", "shaders/shadow.frag")) return false;
+        if (!scene.particles.init("shaders/particle.vert", "shaders/particle.frag")) return false;
+        if (!scene.add_mesh("cube", mesh_t::cube())) return false;
 
-        room::add_materials(scene);
-        room::build_room(scene);
-        room::build_shelves(scene);
-        room::build_props(scene);
-        player.spawn(vec3_t<gl::f32>(0, 0, 4));
+        if (!playback_device.init(2, 48000)) return false;
+        if (!playback_device.start()) return false;
+
+        if (!playback_device.load(explosion, "assets/sound/explosion.mp3")) return false;
+        load_sounds();
+
+        // the models of the lab, then the lab itself
+        for (const std::string& name : room::model_names) {
+            obj_model_t model;
+            // these files have Z up
+            if (!model.load(std::format("./assets/models/alchemy_pack/{0}/{0}.obj", name).c_str(), true)) return false;
+            if (!scene.add_model(name, model)) return false;
+        }
+        trigger_t *bowl = room::build_lab(scene);
+        const vec3_t<gl::f32> spawn(0, 0, 4.5f);
+        player.spawn(spawn);
         setup_interactions();
+        brew.sfx = &sfx;
+        brew.setup(bowl, spawn); // potions, the cauldron and what they do
+        drag.on_grab = [this](const std::string& name) {
+            const object_t *o = scene.get(name);
+            if (o != nullptr && o->mesh.starts_with("Potion_")) sound("glass_pick", name, o->pos);
+        };
 
         if (!draw2d.init()) return false;
         FT_Long face_index = 0;
@@ -75,50 +98,106 @@ struct app_t {
         ctx.set_vsync(true);
 
         glEnable(GL_DEPTH_TEST);
-        ctx.clear_color(0x181818FF);
+        glEnable(GL_MULTISAMPLE);
+        ctx.clear_color(0x0D0B11FF);
         return true;
     }
 
-    // The three ways objects can react, as an example: E on the spheres, a trigger over the can, a collision on the gong.
+    // a missing file is logged and that sound just stays silent
+    void load_sounds()
+    {
+        struct entry_t { const char *name, *file; gl::f32 volume; };
+        const entry_t entries[] = {
+            {"candle_snuff",  "assets/sound/candle_snuff.mp3",    0.10f},
+            {"candle_light",  "assets/sound/candle_light.mp3",    0.40f},
+            {"door_rattle",   "assets/sound/door_rattle.mp3",     0.50f},
+            {"door_thud",     "assets/sound/door_thud.mp3",       0.60f},
+            {"glass_pick",    "assets/sound/glass_pick.mp3",      0.35f},
+            {"glass_clink",   "assets/sound/glass_clink.mp3",     0.35f},
+            {"step_a",        "assets/sound/step_a.mp3",          0.08f},
+            {"step_b",        "assets/sound/step_b.mp3",          0.08f},
+            {"bubble",        "assets/sound/cauldron_bubble.mp3", 0.30f},
+            {"splash",        "assets/sound/splash.mp3",          0.45f},
+            {"chime",         "assets/sound/chime.mp3",           0.40f},
+            {"carpet_burn",   "assets/sound/carpet_burn.mp3",     0.60f},
+        };
+        for (const entry_t& e : entries) sfx.load(e.name, e.file, e.volume);
+    }
+
+    // `owner` is the object that makes the sound, `at` where it is (none = at the listener). Only while the game
+    // runs, not in the menus
+    void sound(const char *name, const std::string& owner, std::optional<vec3_t<gl::f32>> at = std::nullopt,
+               gl::f32 gain = 1.0f, gl::f32 min_gap = 0.0f)
+    {
+        if (alchemy_ui.game_interactive()) sfx.play(name, {.owner = owner, .at = at, .gain = gain, .min_gap = min_gap});
+    }
+
+    // a step every stride on the ground, a stride is longer for a big player
+    gl::f32 step_distance = 0.0f;
+    bool    step_left     = false;
+    void update_footsteps()
+    {
+        phys::body_t& body = player.get_body();
+        if (!alchemy_ui.game_interactive() || player.mode != cam_mode_t::fps || !body.on_ground) {
+            step_distance = 0.0f;
+            return;
+        }
+        const gl::f32 speed = std::hypot(body.vel.x, body.vel.z);
+        if (speed < 0.5f) {
+            step_distance = 0.0f;
+            return;
+        }
+        step_distance += speed * ctx.last_frame;
+        if (step_distance >= 1.4f * player.scale) {
+            step_distance = 0.0f;
+            step_left = !step_left;
+            sound(step_left ? "step_a" : "step_b", "player", std::nullopt, std::clamp(0.5f + 0.5f * speed / 6.0f, 0.5f, 1.0f));
+        }
+    }
+
+    // How objects of the lab react: E (candles, the door), a collision (the door). The cauldron and the
+    // potions are `brew_t`.
     void setup_interactions()
     {
-        // E: lights the sphere up or off again
+        // E: snuff out / light a candle, the flame is its Flame_* parts
         for (auto& [name, o] : scene.objects) {
-            if (o.mesh != "sphere" || o.rigid < 0) continue;
-            o.prompt = "Activate";
-            o.on_interact = [this, original = o.material](scene_t& s, const std::string& self) {
-                object_t *o = s.get(self);
-                const bool on = o->material != "active glow";
-                o->material = on ? "active glow" : original;
-                alchemy_ui.set_status(on ? "The sphere hums and lights up." : "The sphere goes dark.");
+            if (!name.starts_with("candle") || name.contains('/')) continue;
+            o.prompt = "Snuff out";
+            o.on_interact = [this](scene_t& s, const std::string& self) {
+                object_t *candle = s.get(self);
+                const object_t *wick = s.get(self + "/Flame_Core");
+                const bool lit = wick != nullptr && !wick->visible; // it is out, so it gets lit
+                candle->prompt = lit ? "Snuff out" : "Light";
+                for (const char *flame : {"/Flame_Amber", "/Flame_Core"}) {
+                    if (object_t *part = s.get(self + flame)) part->visible = lit;
+                }
+                sound(lit ? "candle_light" : "candle_snuff", self, candle->pos);
+                alchemy_ui.set_status(lit ? "The candle flickers back to life." : "The candle is out.");
             };
         }
 
-        // trigger: whatever lands in the can
-        trigger_t *can = room::add_can(scene, "can", vec3_t<gl::f32>(3.5f, 0.0f, 2.5f), vec2_t<gl::f32>(0.45f, 0.45f), 0.9f);
-        can->on_enter = [this](scene_t&, const std::string&, const std::string& object) {
-            ++cans_filled;
-            alchemy_ui.set_status(std::format("{} fell into the can ({} so far).", object, cans_filled));
-        };
-        can->on_exit = [this](scene_t&, const std::string&, const std::string& object) {
-            --cans_filled;
-            alchemy_ui.set_status(std::format("{} left the can.", object));
-        };
-
-        // collision: a gong on the back wall, hit it with something
-        scene.add("gong", {
-            .mesh = "cube", .material = "gold metal", .pos = {0.0f, 2.2f, -ROOM_Z + 0.07f}, .scale = {0.8f, 0.8f, 0.06f},
-            .body = body_kind_t::fixed,
-        });
-        scene.get("gong")->on_collision = [this](scene_t&, const std::string&, const std::string& other, gl::f32 impulse) {
-            if (impulse < 0.5f) return; // a touch is not a hit
-            alchemy_ui.set_status(std::format("DONG! {} hit the gong.", other));
-        };
+        // E and collision: the door is locked
+        if (object_t *door = scene.get("door")) {
+            door->prompt      = "Open";
+            door->on_interact = [this](scene_t& s, const std::string& self) {
+                sound("door_rattle", self, s.get(self)->pos);
+                alchemy_ui.set_status("The door is locked.");
+            };
+            door->on_collision = [this](scene_t& s, const std::string& self, const std::string& other, gl::f32 impulse) {
+                if (impulse > 0.5f) {
+                    sound("door_thud", self, s.get(self)->pos, std::clamp(impulse / 3.0f, 0.4f, 1.0f), 0.15f);
+                    alchemy_ui.set_status(std::format("THUD! {} hit the door.", other));
+                }
+            };
+        }
     }
 
     void input()
     {
         gl::input_t& in = ctx.input;
+
+        // NOTE: test input
+        if (in.key_hit(gl::kb_key_t::r)) explosion.reset();
 
         // before the capture click below, so that click doesn't also grab
         if (in.mouse_captured) drag.input(in, (int)player.body);
@@ -129,6 +208,10 @@ struct app_t {
         player.input(in, ctx.last_frame, !drag.rotating);
 
         if (in.key_hit(gl::kb_key_t::f1)) hud_visible = !hud_visible;
+        if (in.key_hit(gl::kb_key_t::f3)) {
+            scene.shadows = !scene.shadows;
+            alchemy_ui.set_status(scene.shadows ? "Shadows on." : "Shadows off.");
+        }
 
         // E: use what is under the crosshair
         const pick_t look = scene.pick(scene.cam.pos, scene.cam.forward(), INTERACT_REACH, (int)player.body);
@@ -151,15 +234,6 @@ struct app_t {
         if (in.key_held(gl::kb_key_t::comma))  scene.lamp.radius -= k;
         scene.lamp.radius = std::max(scene.lamp.radius, 0.1f);
 
-        if (in.key_hit(gl::kb_key_t::key_1)) scene.shading = shading_t::normals;
-        if (in.key_hit(gl::kb_key_t::key_2)) scene.shading = shading_t::gouraud;
-        if (in.key_hit(gl::kb_key_t::key_3)) scene.shading = shading_t::phong;
-
-        if (in.key_hit(gl::kb_key_t::m)) {
-            model_material = (model_material + 1) % room::prop_materials.size();
-            if (object_t *o = scene.get("teapot")) o->material = room::prop_materials[model_material];
-        }
-
         // HUD text size
         if (in.key_held(gl::kb_key_t::x) && hud_text_size > 0.0f) hud_text_size -= 1.0f;
         if (in.key_held(gl::kb_key_t::c)) hud_text_size += 1.0f;
@@ -172,11 +246,11 @@ struct app_t {
         return std::format(
             "FPS: {:.0f}   {}x{}\n"
             "Camera: {}   pos: {:.1f} {:.1f} {:.1f}\n"
-            "Shading: {}   Model material: {}",
+            "Shading: {}",
             ctx.actual_fps, ctx.screen_size.x, ctx.screen_size.y,
             player.mode == cam_mode_t::fps ? "first-person" : "free-fly",
             pos.x, pos.y, pos.z,
-            shading_name[(int)scene.shading], room::prop_materials[model_material]
+            shading_name[(int)scene.shading]
         );
     }
 
@@ -227,11 +301,17 @@ struct app_t {
         drag.update(ctx.input, ctx.last_frame);
         scene.update(ctx.last_frame);
         player.update();
+        update_footsteps();
+        sfx.set_listener(scene.cam.pos, scene.cam.right());
+        brew.update(ctx.last_frame);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         const gl::f32 aspect = (gl::f32)ctx.screen_size.x / (gl::f32)std::max(ctx.screen_size.y, 1);
-        if (!scene.draw(aspect)) return false;
+        brew.shake_begin();
+        const bool drawn = scene.draw(aspect);
+        brew.shake_end();
+        if (!drawn) return false;
 
         if (hud_visible) draw_hud();
         if (alchemy_ui.game_interactive() && ctx.input.mouse_captured) draw_crosshair();
@@ -243,11 +323,8 @@ struct app_t {
     }
 };
 
-int main(int argc, char **argv)
+int main()
 {
-    const char *model_path = "./assets/models/teapot.smf";
-    if (argc >= 2) model_path = argv[1];
-
     gl::gl_first_state_verify();
 
     gl::glfw_ctx_t glfw_ctx;
@@ -259,7 +336,7 @@ int main(int argc, char **argv)
 
     // declared after ctx: GL objects die before the GLFW context
     app_t app(ctx);
-    if (!app.init(model_path)) return 1;
+    if (!app.init()) return 1;
 
     ctx.before_loop();
     while (!ctx.window_should_close()) {

@@ -10,7 +10,7 @@ extern "C" {
     #include FT_FREETYPE_H
 }
 #include <core/gl/first.hpp>
-#include <2d/math.hpp>
+#include <2d/vec.hpp>
 
 namespace ft {
     void log_ft_error(FT_Error err, std::string type);
@@ -34,7 +34,7 @@ namespace ft {
         FT_Face         face;
         std::string     path;
         bool            initialized;
-        vec2_t<FT_UInt> base_size;
+        math::vec2_t<FT_UInt> base_size;
 
         ft_face_t(ft_lib_t& lib);
         ~ft_face_t();
@@ -45,15 +45,15 @@ namespace ft {
         //     units: pixels
         //     width  = 0 -> width  = height
         //     height = 0 -> height = width
-        bool set_pixel_sizes(vec2_t<FT_UInt> pixel_size, vec2_t<gl::f32> dpi = vec2_t<gl::f32>::one());
+        bool set_pixel_sizes(math::vec2_t<FT_UInt> pixel_size, math::vec2_t<gl::f32> dpi = math::vec2_t<gl::f32>::one());
 
-        vec2_t<FT_UInt> measure_text(const std::string& text, gl::f32 height, gl::f32 spacing = 0);
+        math::vec2_t<FT_UInt> measure_text(const std::string& text, gl::f32 height, gl::f32 spacing = 0);
 
         // char_size:
         //     units: 1/64 of points
         //     width  = 0 -> width  = height
         //     height = 0 -> height = width
-        bool set_char_size(vec2_t<FT_F26Dot6> char_size, vec2_t<FT_UInt> res);
+        bool set_char_size(math::vec2_t<FT_F26Dot6> char_size, math::vec2_t<FT_UInt> res);
 
         // retrieve glyph index from character code
         // 0 means undefined character code

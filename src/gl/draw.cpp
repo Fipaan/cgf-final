@@ -2,6 +2,8 @@
 
 #include <span>
 
+using namespace math;
+
 gl::draw2d_t::draw2d_t(ctx_t& ctx) :
     ctx(ctx)
 {
@@ -144,15 +146,16 @@ bool gl::draw2d_t::draw_rect(rect_t rect)
 {
     assert(initialized);
 
-    rect.spread_pos(vertices_flat);
-    rect.spread_color(colors_flat);
+    flat_t<f32> pos, color;
+    rect.spread_pos(pos);
+    rect.spread_color(color);
     for (size_t j = 0; j < 4; ++j) {
-        ctx.to_ndc(vertices_flat[2*j+0], vertices_flat[2*j+1]);
+        ctx.to_ndc(pos.vec[2*j+0], pos.vec[2*j+1]);
     }
 
     if (!vao.bind()) return false;
-    if (!vbo_pos.init_buffer(std::span<gl::f32>(vertices_flat.data(), 4*2), dsu_t::static_draw)) return false;
-    if (!vbo_color.init_buffer(std::span<gl::f32>(colors_flat.data(), 4*3), dsu_t::static_draw)) return false;
+    if (!vbo_pos.init_buffer(std::span<gl::f32>(pos.data(), 4*2), dsu_t::static_draw)) return false;
+    if (!vbo_color.init_buffer(std::span<gl::f32>(color.data(), 4*3), dsu_t::static_draw)) return false;
     if (!_pad_attribs(4, false, true)) return false;
 
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);

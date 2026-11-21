@@ -42,12 +42,12 @@ namespace gl {
         shader_t panel_shader;
 
         // all sizes are designed for `ref_size` and multiplied by `scale`
-        vec2_t<f32> ref_size = vec2_t<f32>(1200.0f, 900.0f);
+        math::vec2_t<f32> ref_size = math::vec2_t<f32>(1200.0f, 900.0f);
         f32 scale_min = 0.55f, scale_max = 1.35f;
 
         // refreshed by `update`
         f32 width, height, scale;
-        vec2_t<f32> mouse;
+        math::vec2_t<f32> mouse;
         bool clicked;
 
         gui_t(ctx_t& ctx, draw2d_t& draw2d, text_t& text);
@@ -58,10 +58,10 @@ namespace gl {
 
         bool hovered(box_t box) const;
 
-        void fill(box_t box, color_t color);
+        void fill(box_t box, math::color_t color);
         // `y` is the top of the text, `size` is the text height
-        void label(const std::string& value, f32 x, f32 y, f32 size, color_t color);
+        void label(const std::string& value, f32 x, f32 y, f32 size, math::color_t color);
         // returns true on the frame it was clicked
-        bool button(box_t box, const std::string& value, color_t color, color_t text_color);
+        bool button(box_t box, const std::string& value, math::color_t color, math::color_t text_color);
     };
 }

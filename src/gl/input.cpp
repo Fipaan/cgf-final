@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+using namespace math;
+
 gl::input_t::input_t()
 {
     window         = nullptr;

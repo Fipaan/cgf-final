@@ -1,71 +1,16 @@
 /*
  * 3d/math.hpp -
- *     Math related to 3D objects, such as vectors, matrices, and etc.
+ *     Math related to 3D objects, such as matrices, and etc.
  */
 #pragma once
 
 #include <core/gl/first.hpp>
+#include <3d/vec.hpp>
 #include <cassert>
 #include <cmath>
 #include <type_traits>
 
-template<typename T>
-struct vec3_t {
-    T x, y, z;
-
-    constexpr vec3_t(T x, T y, T z);
-    constexpr vec3_t(T v);
-    constexpr vec3_t();
-
-    constexpr static vec3_t<T> zero();
-    constexpr static vec3_t<T> one();
-
-    template<typename K> constexpr auto operator+(const vec3_t<K>& rhs) const;
-    template<typename K> constexpr auto operator-(const vec3_t<K>& rhs) const;
-    template<typename K> constexpr auto operator*(const vec3_t<K>& rhs) const;
-    template<typename K> constexpr auto operator/(const vec3_t<K>& rhs) const;
-    template<typename K> constexpr auto operator==(const vec3_t<K>& rhs) const;
-    template<typename K> constexpr auto operator!=(const vec3_t<K>& rhs) const;
-
-    template<typename K> constexpr vec3_t<T>& operator=(const vec3_t<K>& rhs);
-    template<typename K> constexpr vec3_t<T>& operator+=(const vec3_t<K>& rhs);
-    template<typename K> constexpr vec3_t<T>& operator-=(const vec3_t<K>& rhs);
-    template<typename K> constexpr vec3_t<T>& operator*=(const vec3_t<K>& rhs);
-    template<typename K> constexpr vec3_t<T>& operator/=(const vec3_t<K>& rhs);
-
-    constexpr vec3_t<T> operator-() const;
-
-    template<typename K> requires std::is_arithmetic_v<K>
-    constexpr auto operator*(K scale) const;
-    template<typename K> requires std::is_arithmetic_v<K>
-    constexpr auto operator/(K scale) const;
-
-    template<typename K>
-    constexpr vec3_t<K> cast() const;
-
-    constexpr vec3_t<T> clone() const;
-};
-
-namespace vec3 {
-    template<typename T, typename K>
-    constexpr auto dot(const vec3_t<T>& a, const vec3_t<K>& b);
-
-    template<typename T, typename K>
-    constexpr auto cross(const vec3_t<T>& a, const vec3_t<K>& b);
-
-    template<typename T>
-    constexpr T len(const vec3_t<T>& a);
-
-    // zero vector stays zero (degenerate triangles)
-    template<typename T>
-    constexpr vec3_t<T> norm(const vec3_t<T>& a);
-
-    template<typename T>
-    constexpr vec3_t<T> abs(const vec3_t<T>& a);
-}
-
-template<typename T, typename K> requires std::is_arithmetic_v<K>
-constexpr auto operator*(K scale, const vec3_t<T>& vec);
+namespace math {
 
 // column-major: m[col*4 + row], upload with transpose = GL_FALSE
 struct mat4_t {
@@ -76,10 +21,24 @@ struct mat4_t {
 
     constexpr void insert_row(size_t i, vec3_t<gl::f32> row, size_t shift = 0);
 
-    constexpr static mat4_t identity();
+    constexpr static mat4_t id();
+    // matrix to convert world coordinates into camera coordinates
+    //     eye    - camera position
+    //     center - point where camera is looking at
+    //     up     - world up vector
     constexpr static mat4_t look_at(vec3_t<gl::f32> eye, vec3_t<gl::f32> center, vec3_t<gl::f32> up);
-    constexpr static mat4_t perspective(gl::f32 fovy, gl::f32 aspect, gl::f32 n, gl::f32 f);
-    constexpr static mat4_t ortho(gl::f32 l, gl::f32 r, gl::f32 b, gl::f32 t, gl::f32 n, gl::f32 f);
+    // matrix to convert camera-space into clip-space coordinates from perspective view
+    //     fovy   - vertical field of view
+    //     aspect - width:height ratio
+    //     near - near clip plane
+    //     far  - far clip plane
+    constexpr static mat4_t perspective(gl::f32 fovy, gl::f32 aspect, gl::f32 near, gl::f32 far);
+    // matrix to convert camera-space into clip-space coordinates from orthographic view
+    //     all parameters define bounding box of the world that's going to be rendered
+    constexpr static mat4_t ortho(
+        gl::f32 left, gl::f32 right, gl::f32 bottom, gl::f32 top,
+        gl::f32 near, gl::f32 far
+    );
 
     constexpr static mat4_t translate(vec3_t<gl::f32> t);
     constexpr static mat4_t scale(vec3_t<gl::f32> s);
@@ -105,204 +64,6 @@ struct cyl_t {
 
 ///// IMPLEMENTATION ///////////////////////////////////////////////////////////
 
-template<typename T>
-constexpr vec3_t<T>::vec3_t(T x, T y, T z)
-{
-    this->x = x;
-    this->y = y;
-    this->z = z;
-}
-
-template<typename T>
-constexpr vec3_t<T>::vec3_t(T v)
-{
-    x = y = z = v;
-}
-
-template<typename T>
-constexpr vec3_t<T>::vec3_t()
-{
-    x = y = z = 0;
-}
-
-template<typename T>
-constexpr vec3_t<T> vec3_t<T>::zero() { return vec3_t<T>(0); }
-template<typename T>
-constexpr vec3_t<T> vec3_t<T>::one()  { return vec3_t<T>(1); }
-
-template<typename T>
-template<typename K>
-constexpr auto vec3_t<T>::operator+(const vec3_t<K>& rhs) const
-{
-    using R = std::common_type_t<T, K>;
-    return vec3_t<R>(x + rhs.x, y + rhs.y, z + rhs.z);
-}
-
-template<typename T>
-template<typename K>
-constexpr auto vec3_t<T>::operator-(const vec3_t<K>& rhs) const
-{
-    using R = std::common_type_t<T, K>;
-    return vec3_t<R>(x - rhs.x, y - rhs.y, z - rhs.z);
-}
-
-template<typename T>
-constexpr vec3_t<T> vec3_t<T>::operator-() const {
-    return vec3_t<T>(-x, -y, -z);
-}
-
-template<typename T>
-template<typename K>
-constexpr auto vec3_t<T>::operator*(const vec3_t<K>& rhs) const
-{
-    using R = std::common_type_t<T, K>;
-    return vec3_t<R>(x * rhs.x, y * rhs.y, z * rhs.z);
-}
-
-template<typename T>
-template<typename K>
-constexpr auto vec3_t<T>::operator/(const vec3_t<K>& rhs) const
-{
-    using R = std::common_type_t<T, K>;
-    return vec3_t<R>(x / rhs.x, y / rhs.y, z / rhs.z);
-}
-
-template<typename T>
-template<typename K>
-constexpr auto vec3_t<T>::operator==(const vec3_t<K>& rhs) const
-{
-    return x == rhs.x && y == rhs.y && z == rhs.z;
-}
-
-template<typename T>
-template<typename K>
-constexpr auto vec3_t<T>::operator!=(const vec3_t<K>& rhs) const
-{
-    return x != rhs.x || y != rhs.y || z != rhs.z;
-}
-
-template<typename T>
-template<typename K> requires std::is_arithmetic_v<K>
-constexpr auto vec3_t<T>::operator*(K scale) const
-{
-    using R = std::common_type_t<T, K>;
-    return (*this) * vec3_t<R>(scale);
-}
-
-template<typename T>
-template<typename K> requires std::is_arithmetic_v<K>
-constexpr auto vec3_t<T>::operator/(K scale) const
-{
-    using R = std::common_type_t<T, K>;
-    return (*this) / vec3_t<R>(scale);
-}
-
-template<typename T, typename K> requires std::is_arithmetic_v<K>
-constexpr auto operator*(K scale, const vec3_t<T>& vec)
-{
-    return vec * scale;
-}
-
-template<typename T>
-template<typename K>
-constexpr vec3_t<T>& vec3_t<T>::operator=(const vec3_t<K>& rhs)
-{
-    x = rhs.x;
-    y = rhs.y;
-    z = rhs.z;
-    return *this;
-}
-
-template<typename T>
-template<typename K>
-constexpr vec3_t<T>& vec3_t<T>::operator+=(const vec3_t<K>& rhs)
-{
-    x += rhs.x;
-    y += rhs.y;
-    z += rhs.z;
-    return *this;
-}
-
-template<typename T>
-template<typename K>
-constexpr vec3_t<T>& vec3_t<T>::operator-=(const vec3_t<K>& rhs)
-{
-    x -= rhs.x;
-    y -= rhs.y;
-    z -= rhs.z;
-    return *this;
-}
-
-template<typename T>
-template<typename K>
-constexpr vec3_t<T>& vec3_t<T>::operator*=(const vec3_t<K>& rhs)
-{
-    x *= rhs.x;
-    y *= rhs.y;
-    z *= rhs.z;
-    return *this;
-}
-
-template<typename T>
-template<typename K>
-constexpr vec3_t<T>& vec3_t<T>::operator/=(const vec3_t<K>& rhs)
-{
-    x /= rhs.x;
-    y /= rhs.y;
-    z /= rhs.z;
-    return *this;
-}
-
-template<typename T>
-template<typename K>
-constexpr vec3_t<K> vec3_t<T>::cast() const
-{
-    return vec3_t<K>((K)x, (K)y, (K)z);
-}
-
-template<typename T>
-constexpr vec3_t<T> vec3_t<T>::clone() const
-{
-    return vec3_t(x, y, z);
-}
-
-template<typename T, typename K>
-constexpr auto vec3::dot(const vec3_t<T>& a, const vec3_t<K>& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-template<typename T, typename K>
-constexpr auto vec3::cross(const vec3_t<T>& a, const vec3_t<K>& b)
-{
-    using R = std::common_type_t<T, K>;
-    return vec3_t<R>(
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x
-    );
-}
-
-template<typename T>
-constexpr T vec3::len(const vec3_t<T>& a)
-{
-    return std::sqrt(vec3::dot(a, a));
-}
-
-template<typename T>
-constexpr vec3_t<T> vec3::norm(const vec3_t<T>& a)
-{
-    T l = vec3::len(a);
-    if (l < (T)1e-12) return vec3_t<T>::zero();
-    return a / l;
-}
-
-template<typename T>
-constexpr vec3_t<T> vec3::abs(const vec3_t<T>& a)
-{
-    return vec3_t<T>(std::fabs(a.x), std::fabs(a.y), std::fabs(a.z));
-}
-
 constexpr gl::f32& mat4_t::at(size_t i, size_t j)
 {
     return m[4*j + i];
@@ -320,7 +81,7 @@ constexpr void mat4_t::insert_row(size_t i, vec3_t<gl::f32> row, size_t shift)
     at(i, shift+2) = row.z;
 }
 
-constexpr mat4_t mat4_t::identity()
+constexpr mat4_t mat4_t::id()
 {
     mat4_t r{};
     r.m[0] = r.m[5] = r.m[10] = r.m[15] = 1.0f;
@@ -334,7 +95,7 @@ constexpr mat4_t mat4_t::look_at(vec3_t<gl::f32> eye, vec3_t<gl::f32> center, ve
     vec3_t<gl::f32> u = vec3::cross(s, f);
     vec3_t<gl::f32> b = -f;
 
-    mat4_t r = identity();
+    mat4_t r = id();
     r.insert_row(0, s);
     r.insert_row(1, u);
     r.insert_row(2, b);
@@ -344,34 +105,36 @@ constexpr mat4_t mat4_t::look_at(vec3_t<gl::f32> eye, vec3_t<gl::f32> center, ve
     return r;
 }
 
-constexpr mat4_t mat4_t::perspective(gl::f32 fovy, gl::f32 aspect, gl::f32 n, gl::f32 f)
+constexpr mat4_t mat4_t::perspective(gl::f32 fovy, gl::f32 aspect, gl::f32 near, gl::f32 far)
 {
     gl::f32 t = std::tan(fovy / 2.0f);
 
     mat4_t r{};
     r.at(0,0) = 1.0f / (aspect * t);
     r.at(1,1) = 1.0f / t;
-    r.at(2,2) = -(f + n) / (f - n);
-    r.at(2,3) = -2.0f * f * n / (f - n);
+    r.at(2,2) = -(far + near) / (far - near);
+    r.at(2,3) = -2.0f * far * near / (far - near);
     r.at(3,2) = -1.0f;
     return r;
 }
 
-constexpr mat4_t mat4_t::ortho(gl::f32 l, gl::f32 r, gl::f32 b, gl::f32 t, gl::f32 n, gl::f32 f)
-{
-    mat4_t res = identity();
-    res.at(0,0) =  2.0f / (r - l);
-    res.at(1,1) =  2.0f / (t - b);
-    res.at(2,2) = -2.0f / (f - n);
-    res.at(0,3) = -(r + l) / (r - l);
-    res.at(1,3) = -(t + b) / (t - b);
-    res.at(2,3) = -(f + n) / (f - n);
+constexpr mat4_t mat4_t::ortho(
+    gl::f32 left, gl::f32 right, gl::f32 bottom, gl::f32 top,
+    gl::f32 near, gl::f32 far
+) {
+    mat4_t res = id();
+    res.at(0,0) =  2.0f / (right - left);
+    res.at(1,1) =  2.0f / (top - bottom);
+    res.at(2,2) = -2.0f / (far - near);
+    res.at(0,3) = -(right + left) / (right - left);
+    res.at(1,3) = -(top + bottom) / (top - bottom);
+    res.at(2,3) = -(far + near) / (far - near);
     return res;
 }
 
 constexpr mat4_t mat4_t::translate(vec3_t<gl::f32> t)
 {
-    mat4_t r = identity();
+    mat4_t r = id();
     r.at(0,3) = t.x;
     r.at(1,3) = t.y;
     r.at(2,3) = t.z;
@@ -380,7 +143,7 @@ constexpr mat4_t mat4_t::translate(vec3_t<gl::f32> t)
 
 constexpr mat4_t mat4_t::scale(vec3_t<gl::f32> s)
 {
-    mat4_t r = identity();
+    mat4_t r = id();
     r.at(0,0) = s.x;
     r.at(1,1) = s.y;
     r.at(2,2) = s.z;
@@ -390,7 +153,7 @@ constexpr mat4_t mat4_t::scale(vec3_t<gl::f32> s)
 constexpr mat4_t mat4_t::rotate_x(gl::f32 angle)
 {
     gl::f32 c = std::cos(angle), s = std::sin(angle);
-    mat4_t r = identity();
+    mat4_t r = id();
     r.at(1,1) =  c; r.at(1,2) = -s;
     r.at(2,1) =  s; r.at(2,2) =  c;
     return r;
@@ -399,7 +162,7 @@ constexpr mat4_t mat4_t::rotate_x(gl::f32 angle)
 constexpr mat4_t mat4_t::rotate_y(gl::f32 angle)
 {
     gl::f32 c = std::cos(angle), s = std::sin(angle);
-    mat4_t r = identity();
+    mat4_t r = id();
     r.at(0,0) =  c; r.at(0,2) =  s;
     r.at(2,0) = -s; r.at(2,2) =  c;
     return r;
@@ -408,7 +171,7 @@ constexpr mat4_t mat4_t::rotate_y(gl::f32 angle)
 constexpr mat4_t mat4_t::rotate_z(gl::f32 angle)
 {
     gl::f32 c = std::cos(angle), s = std::sin(angle);
-    mat4_t r = identity();
+    mat4_t r = id();
     r.at(0,0) =  c; r.at(0,1) = -s;
     r.at(1,0) =  s; r.at(1,1) =  c;
     return r;
@@ -456,3 +219,5 @@ constexpr vec3_t<gl::f32> cyl_t::to_cart_y_up() const
     gl::f32 b = radius * std::sin(angle);
     return vec3_t<gl::f32>(a, height, b);
 }
+
+} // namespace math

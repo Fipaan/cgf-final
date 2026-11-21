@@ -2,6 +2,8 @@
 
 #include <core/log.hpp>
 
+using namespace math;
+
 void ft::log_ft_error(FT_Error err, std::string type)
 {
     const char *msg = FT_Error_String(err);

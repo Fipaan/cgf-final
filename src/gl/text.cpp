@@ -5,6 +5,8 @@
 
 #include <core/log.hpp>
 
+using namespace math;
+
 // NOTE: glyphs are never rasterized at an arbitrary size, otherwise every step of
 //       a smoothly changing text size would create a new atlas.
 constexpr FT_UInt text_pixel_sizes[] = {8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 96, 128};

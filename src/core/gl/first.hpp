@@ -46,11 +46,6 @@ namespace gl {
 
 ///// IMPLEMENTATION ///////////////////////////////////////////////////////////
 
-inline void gl::gl_first_state_verify()
-{
-    assert(gl::gl_first_state() == gl::gl_first_state_cpp());
-}
-
 constexpr uint32_t gl::gl_first_state()
 {
 #ifdef ABORT_ON_ANY_GL_ERROR

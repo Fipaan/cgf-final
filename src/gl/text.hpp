@@ -29,9 +29,9 @@ ctx.end_overlay();
 */
 namespace gl {
     struct glyph_t {
-        vec2_t<f32> uv0, uv1; // atlas rectangle, 0..1, `uv0` is the top-left corner of the bitmap
-        vec2_t<f32> size;     // bitmap size, pixels
-        vec2_t<f32> bearing;  // bitmap_left, bitmap_top, pixels
+        math::vec2_t<f32> uv0, uv1; // atlas rectangle, 0..1, `uv0` is the top-left corner of the bitmap
+        math::vec2_t<f32> size;     // bitmap size, pixels
+        math::vec2_t<f32> bearing;  // bitmap_left, bitmap_top, pixels
         f32         advance;  // pixels
         bool        empty;    // nothing to draw (e.g. space)
     };
@@ -41,8 +41,8 @@ namespace gl {
     struct glyph_atlas_t {
         bool        initialized;
         GLuint      texture;
-        vec2_t<int> size;
-        vec2_t<int> pen; // next free pixel
+        math::vec2_t<int> size;
+        math::vec2_t<int> pen; // next free pixel
         int         row_h;
         // out of space, `text_t` drops the cache before the next draw
         bool        full;
@@ -55,7 +55,7 @@ namespace gl {
         ~glyph_atlas_t();
 
         // `face` must already be set to `pixel_size`
-        bool init(ft::ft_face_t& face, FT_UInt pixel_size, vec2_t<int> size);
+        bool init(ft::ft_face_t& face, FT_UInt pixel_size, math::vec2_t<int> size);
         void clear();
 
         // `face` must be set to `pixel_size`, nullptr if the glyph can't be loaded or doesn't fit
@@ -81,7 +81,7 @@ namespace gl {
         // key is the pixel size glyphs are rasterized at, see `pixel_size_for`
         std::map<FT_UInt, std::unique_ptr<glyph_atlas_t>> atlases;
         std::vector<f32> quads;
-        vec2_t<int>      _proj_size;
+        math::vec2_t<int>      _proj_size;
 
         text_t(ctx_t& ctx);
 
@@ -92,10 +92,10 @@ namespace gl {
 
         // `pos` is the top-left corner of the text, y goes up, `height` is in pixels.
         // Handles `\n` and UTF-8. Enables alpha blending (see `ctx_t::begin_overlay`).
-        bool draw(const std::string& text, vec2_t<f32> pos, f32 height, color_t color);
+        bool draw(const std::string& text, math::vec2_t<f32> pos, f32 height, math::color_t color);
 
         // size of the box `draw` would fill, pixels
-        vec2_t<f32> measure(const std::string& text, f32 height);
+        math::vec2_t<f32> measure(const std::string& text, f32 height);
 
         // used internally, not really meant to use outside
         glyph_atlas_t *_atlas_for(f32 height);

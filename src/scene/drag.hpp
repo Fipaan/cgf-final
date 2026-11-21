@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include <functional>
 #include <string>
 
 #include <gl/input.hpp>
@@ -34,8 +35,9 @@ struct drag_t {
     std::string hover; // object under the crosshair
     std::string held;  // object being dragged, empty = none
     gl::f32 distance = 0.0f; // camera -> grab point
-    vec3_t<gl::f32> offset;  // grab point -> body centre
+    math::vec3_t<gl::f32> offset;  // grab point -> body centre
     bool rotating = false;   // LMB + RMB, mouse movement turns the held object
+    std::function<void(const std::string& name)> on_grab; // called when something got picked up
 
     drag_t(scene_t& scene);
 

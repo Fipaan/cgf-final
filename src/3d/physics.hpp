@@ -1,11 +1,9 @@
 /*
  * 3d/physics.hpp -
- *     Minimal rigid body physics: gravity + AABB collisions, Header only.
+ *     Minimal rigid body physics: gravity + AABB collisions.
  */
 #pragma once
 
-#include <algorithm>
-#include <cmath>
 #include <vector>
 
 #include <core/gl/first.hpp>
@@ -23,117 +21,38 @@ vec3_t<gl::f32> p = world.bodies[crate].pos;
 ```
 */
 namespace phys {
-    constexpr gl::f32 TERMINAL_SPEED = 50.0f;
-    // contacts closer than this are not counted as overlap (resting contact stays stable)
-    constexpr gl::f32 EPS = 1e-4f;
 
-    struct body_t {
-        vec3_t<gl::f32> pos;  // centre
-        vec3_t<gl::f32> half; // half extents
-        vec3_t<gl::f32> vel;
-        gl::f32 restitution = 0.0f;  // 0 = no bounce, 1 = perfect bounce
-        gl::f32 friction    = 4.0f;  // horizontal drag while on ground, 1/s
-        gl::f32 mass        = 1.0f;  // used by `rigid_world_t` when the body is pushed by rigid bodies
-        bool is_static      = false; // never moves, still collides
-        bool enabled        = true;  // disabled bodies are skipped completely
-        bool on_ground      = false; // set by `world_t::step`
-    };
+using namespace math;
 
-    struct world_t {
-        std::vector<body_t> bodies;
-        vec3_t<gl::f32> gravity = vec3_t<gl::f32>(0.0f, -9.81f, 0.0f);
-        gl::f32 step_dt     = 1.0f / 120.0f;
-        gl::f32 accumulator = 0.0f;
+constexpr gl::f32 TERMINAL_SPEED = 50.0f;
+// contacts closer than this are not counted as overlap (resting contact stays stable)
+constexpr gl::f32 EPS = 1e-4f;
 
-        size_t add(body_t body);
-        // fixed timestep, safe to call with the frame time
-        void update(gl::f32 dt);
-        void step(gl::f32 dt);
-    };
+struct body_t {
+    vec3_t<gl::f32> pos;  // centre
+    vec3_t<gl::f32> half; // half extents
+    vec3_t<gl::f32> vel;
+    gl::f32 restitution = 0.0f;  // 0 = no bounce, 1 = perfect bounce
+    gl::f32 friction    = 4.0f;  // horizontal drag while on ground, 1/s
+    gl::f32 mass        = 1.0f;  // used by `rigid_world_t` when the body is pushed by rigid bodies
+    bool is_static      = false; // never moves, still collides
+    bool enabled        = true;  // disabled bodies are skipped completely
+    bool on_ground      = false; // set by `world_t::step`
 
-    bool overlap(const body_t& a, const body_t& b);
-}
+    static bool overlap(const body_t& a, const body_t& b);
+};
 
-///// IMPLEMENTATION ///////////////////////////////////////////////////////////
+struct world_t {
+    std::vector<body_t> bodies;
+    vec3_t<gl::f32> gravity = vec3_t<gl::f32>(0.0f, -9.81f, 0.0f);
+    gl::f32 step_dt     = 1.0f / 120.0f;
+    gl::f32 accumulator = 0.0f;
 
-namespace phys::detail {
-    inline gl::f32& comp(vec3_t<gl::f32>& v, int i)
-    {
-        return i == 0 ? v.x : (i == 1 ? v.y : v.z);
-    }
-    inline gl::f32 comp(const vec3_t<gl::f32>& v, int i)
-    {
-        return i == 0 ? v.x : (i == 1 ? v.y : v.z);
-    }
-}
+    size_t add(body_t body);
+    // fixed timestep, safe to call with the frame time
+    void update(gl::f32 dt);
+    // semi-implicit Euler, each axis is moved and resolved separately
+    void step(gl::f32 dt);
+};
 
-inline bool phys::overlap(const body_t& a, const body_t& b)
-{
-    using detail::comp;
-    for (int i = 0; i < 3; ++i) {
-        gl::f32 d     = std::fabs(comp(a.pos, i) - comp(b.pos, i));
-        gl::f32 reach = comp(a.half, i) + comp(b.half, i);
-        if (d >= reach - EPS) return false;
-    }
-    return true;
-}
-
-inline size_t phys::world_t::add(body_t body)
-{
-    bodies.push_back(body);
-    return bodies.size() - 1;
-}
-
-inline void phys::world_t::update(gl::f32 dt)
-{
-    // avoids the spiral of death after a long stall
-    accumulator += std::min(dt, 0.1f);
-    while (accumulator >= step_dt) {
-        step(step_dt);
-        accumulator -= step_dt;
-    }
-}
-
-// semi-implicit Euler, each axis is moved and resolved separately
-inline void phys::world_t::step(gl::f32 dt)
-{
-    using detail::comp;
-
-    for (size_t i = 0; i < bodies.size(); ++i) {
-        body_t& b = bodies[i];
-        if (b.is_static || !b.enabled) continue;
-
-        b.on_ground = false;
-        b.vel += gravity * dt;
-        b.vel.y = std::max(b.vel.y, -TERMINAL_SPEED);
-
-        for (int axis = 0; axis < 3; ++axis) {
-            // velocity of this axis before any resolve zeroes it, all overlaps use it
-            const gl::f32 v = comp(b.vel, axis);
-            comp(b.pos, axis) += v * dt;
-
-            for (size_t j = 0; j < bodies.size(); ++j) {
-                if (j == i) continue;
-                const body_t& o = bodies[j];
-                if (!o.enabled || !overlap(b, o)) continue;
-
-                // only motion along this axis can have caused the overlap, so push back against it
-                if (v == 0.0f) continue;
-
-                gl::f32 reach = comp(b.half, axis) + comp(o.half, axis);
-                bool    up    = v > 0.0f;
-
-                comp(b.pos, axis) = comp(o.pos, axis) + (up ? -reach : reach);
-                if (axis == 1 && !up) b.on_ground = true;
-
-                comp(b.vel, axis) = -v * b.restitution;
-            }
-        }
-
-        if (b.on_ground) {
-            gl::f32 k = std::exp(-b.friction * dt);
-            b.vel.x *= k;
-            b.vel.z *= k;
-        }
-    }
-}
+} // namespace phys

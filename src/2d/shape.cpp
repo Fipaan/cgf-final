@@ -1,5 +1,7 @@
 #include "shape.hpp"
 
+using namespace math;
+
 rect_t::rect_t(vec2_t<gl::f32> pos, vec2_t<gl::f32> size)
     : colors{
         color_t(0xFFFFFFFF),
@@ -39,45 +41,27 @@ rect_t::rect_t()
     pos.x = pos.y = size.x = size.y = 0;
 }
 
-void rect_t::spread_pos(std::vector<gl::f32>& storage)
+void rect_t::spread_pos(gl::flat_t<gl::f32>& container)
 {
-    storage.resize(4*2);
-    storage[2*0+0] = pos.x;
-    storage[2*0+1] = pos.y;
-    storage[2*1+0] = pos.x + size.x;
-    storage[2*1+1] = pos.y;
-    storage[2*2+0] = pos.x + size.x;
-    storage[2*2+1] = pos.y + size.y;
-    storage[2*3+0] = pos.x;
-    storage[2*3+1] = pos.y + size.y;
+    container.add(pos.x);
+    container.add(pos.y);
+    container.add(pos.x + size.x);
+    container.add(pos.y);
+    container.add(pos.x + size.x);
+    container.add(pos.y + size.y);
+    container.add(pos.x);
+    container.add(pos.y + size.y);
 }
 
-void rect_t::spread_color(std::vector<gl::f32>& storage, gl::vad_cpv_t cpv)
+void rect_t::spread_color(gl::flat_t<gl::f32>& container, gl::vad_cpv_t cpv)
 {
-    storage.resize(std::size(colors)*4);
-    bool rgb = true;
-    bool alpha = false;
-    switch (cpv) {
-    case gl::vad_cpv_t::comp_3:    break;
-    case gl::vad_cpv_t::comp_4:    alpha = true; break;
-    case gl::vad_cpv_t::comp_bgra: alpha = true; rgb = false; break;
-    case gl::vad_cpv_t::comp_1:
-    case gl::vad_cpv_t::comp_2:
-    default:                       assert(false && "Invalid value for spreading color");
-    }
-    size_t comps = alpha ? 4 : 3;
-    for (size_t i = 0; i < std::size(colors); ++i) {
-        size_t comps_width = comps*i;
-        if (rgb) {
-            storage[comps_width + 0] = colors[i].r;
-            storage[comps_width + 1] = colors[i].g;
-            storage[comps_width + 2] = colors[i].b;
-        } else {
-            storage[comps_width + 0] = colors[i].b;
-            storage[comps_width + 1] = colors[i].g;
-            storage[comps_width + 2] = colors[i].r;
-        }
-        if (alpha) storage[comps_width + 3] = colors[i].a;
+    spread_color(container, gl::vad_cpv::to_rgb(cpv), gl::vad_cpv::to_alpha(cpv));
+}
+
+void rect_t::spread_color(gl::flat_t<gl::f32>& container, bool rgb, bool alpha)
+{
+    for (const auto& color : colors) {
+        color.spread(container, rgb, alpha);
     }
 }
 
@@ -169,7 +153,7 @@ void triangle_t::set_up(vec2_t<gl::f32> up)
 {
     const auto current_up = vertices[0] - get_center();
 
-    rot(vec2::compute_angle(up, current_up));
+    rot(vec2::angle(up, current_up));
 }
 
 void triangle_t::move(vec2_t<gl::f32> vec)
@@ -188,49 +172,22 @@ void triangle_t::rot(gl::f32 angle)
     }
 }
 
-void triangle_t::spread_pos(std::vector<gl::f32>& storage)
+void triangle_t::spread_pos(gl::flat_t<gl::f32>& storage)
 {
-    storage.resize(3 * 2);
-
-    for (size_t i = 0; i < std::size(vertices); ++i) {
-        storage[2*i + 0] = vertices[i].x;
-        storage[2*i + 1] = vertices[i].y;
+    for (const auto& vertice : vertices) {
+        storage.add(vertice.x);
+        storage.add(vertice.y);
     }
 }
 
-void triangle_t::spread_color(
-    std::vector<gl::f32>& storage,
-    gl::vad_cpv_t cpv
-)
+void triangle_t::spread_color(gl::flat_t<gl::f32>& container, gl::vad_cpv_t cpv)
 {
-    bool rgb = true;
-    bool alpha = false;
+    spread_color(container, gl::vad_cpv::to_rgb(cpv), gl::vad_cpv::to_alpha(cpv));
+}
 
-    switch (cpv) {
-    case gl::vad_cpv_t::comp_3:    break;
-    case gl::vad_cpv_t::comp_4:    alpha = true; break;
-    case gl::vad_cpv_t::comp_bgra: alpha = true; rgb = false; break;
-    case gl::vad_cpv_t::comp_1:
-    case gl::vad_cpv_t::comp_2:
-    default:                       assert(false && "Invalid value for spreading color");
-    }
-
-    const size_t comps = alpha ? 4 : 3;
-    storage.resize(std::size(colors) * comps);
-
-    for (size_t i = 0; i < std::size(colors); ++i) {
-        const size_t comps_width = comps * i;
-
-        if (rgb) {
-            storage[comps_width + 0] = colors[i].r;
-            storage[comps_width + 1] = colors[i].g;
-            storage[comps_width + 2] = colors[i].b;
-        } else {
-            storage[comps_width + 0] = colors[i].b;
-            storage[comps_width + 1] = colors[i].g;
-            storage[comps_width + 2] = colors[i].r;
-        }
-
-        if (alpha) storage[comps_width + 3] = colors[i].a;
+void triangle_t::spread_color(gl::flat_t<gl::f32>& storage, bool rgb, bool alpha)
+{
+    for (const auto& color : colors) {
+        color.spread(storage, rgb, alpha);
     }
 }
