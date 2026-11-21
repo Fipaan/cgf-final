@@ -23,11 +23,17 @@
 #include <3d/camera.hpp>
 #include <3d/physics.hpp>
 #include <3d/rigid.hpp>
+#include <gl/texture.hpp>
 #include <scene/particles.hpp>
 
 struct material_t {
     math::color_t ambient, diffuse, specular;
     gl::f32 shininess;
+    // key from `add_texture`, empty = none. The image is multiplied with ambient and diffuse.
+    std::string texture;
+    // 0: the uvs of the mesh. Above 0: the image repeats every `tile` world units, projected along the main
+    // axis of the surface normal (for boxes of any size: a floor, a wall)
+    gl::f32 tile = 0.0f;
 };
 
 enum class body_kind_t {
@@ -157,6 +163,7 @@ struct scene_t {
     int player_body = -1;       // index into `world.bodies`, rigid bodies are pushed by it
     gl::f32 _step_acc = 0.0f;
     std::map<std::string, material_t> materials;
+    std::map<std::string, gl::texture_t> textures;
     std::map<std::string, object_t>   objects;
     std::map<std::string, trigger_t>  triggers;
 
@@ -208,6 +215,8 @@ struct scene_t {
     // uploads the mesh, normals must already be computed
     bool add_mesh(const std::string& name, const math::mesh_t& mesh);
     bool add_material(const std::string& name, const material_t& material);
+    // loads the image with a mipmap chain; true also if `name` is already there. Needs the GL context.
+    bool add_texture(const std::string& name, const char *path);
 
     // Registers a model under `key`: one mesh and one material per .mtl material, named "<key>/<material>",
     // recentred on the middle of its bounds. The ambient colour is diffuse + emission (the .mtl `Ka` is a

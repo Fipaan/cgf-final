@@ -2,8 +2,10 @@
 
 in vec3 v_pos;
 in vec3 v_world;
+in vec3 v_wnormal;
 in vec3 v_normal;
 in vec3 v_flat;
+in vec2 v_uv;
 in vec4 v_gouraud;
 
 uniform int shading_mode; // 0 = normal as color, 1 = Gouraud, 2 = Phong
@@ -14,6 +16,9 @@ uniform float material_shininess;
 
 uniform vec3  up_eye;         // world up in eye space, for the hemisphere ambient
 uniform float time;           // seconds, the lamp flickers with it
+uniform sampler2D diffuse_map; // unit 1, mipmapped
+uniform int   has_texture;
+uniform float uv_tile;        // 0 = v_uv, else the image repeats every uv_tile units of the world
 uniform samplerCube shadow_map; // distance to the lamp / shadow_far, see shadow.frag
 uniform int   shadows_on;
 uniform vec3  light0_world;
@@ -30,13 +35,16 @@ out vec4 frag_color;
 
 // HDR result, `finish` brings it to the screen
 // `sh` is how much of the lamp reaches the point (1 = all of it)
-vec3 shade(vec3 P, vec3 N, float sh)
+// `albedo` is the colour of the image at the point (1 = no texture), it goes on ambient and diffuse
+vec3 shade(vec3 P, vec3 N, float sh, vec3 albedo)
 {
     vec3 V = normalize(-P);
+    vec3 kd = material_diffuse.rgb * albedo;
+    vec3 ka = material_ambient.rgb * albedo;
 
     // sky-ish from above, a bit dimmer from below
     float hemi = 0.65 + 0.35 * (dot(N, up_eye) * 0.5 + 0.5);
-    vec3 c = material_ambient.rgb * light_ambient.rgb * hemi;
+    vec3 c = ka * light_ambient.rgb * hemi;
 
     // what the material glows with on its own (flames, liquids): ambient above diffuse, not dimmed by the room
     c += max(material_ambient.rgb - material_diffuse.rgb, 0.0);
@@ -50,7 +58,7 @@ vec3 shade(vec3 P, vec3 N, float sh)
         L /= d;
         float att = i == 0 ? flick * sh / (1.0 + 0.02 * d + 0.012 * d * d) : 1.0 / (1.0 + 0.03 * d * d);
         float nl = max(dot(N, L), 0.0);
-        c += material_diffuse.rgb * light_diffuse.rgb * nl * att;
+        c += kd * light_diffuse.rgb * nl * att;
         if (nl > 0.0) {
             vec3 H = normalize(L + V);
             c += material_specular.rgb * light_specular.rgb * pow(max(dot(N, H), 0.0), material_shininess * 3.0) * att;
@@ -65,7 +73,7 @@ vec3 shade(vec3 P, vec3 N, float sh)
         float att = clamp(1.0 - (d * d) / (r * r), 0.0, 1.0);
         att *= att;
         float nl = max(dot(N, L), 0.0);
-        c += material_diffuse.rgb * point_col[i] * nl * att;
+        c += kd * point_col[i] * nl * att;
         if (nl > 0.0) {
             vec3 H = normalize(L + V);
             c += material_specular.rgb * point_col[i] * pow(max(dot(N, H), 0.0), material_shininess * 3.0) * att;
@@ -74,7 +82,7 @@ vec3 shade(vec3 P, vec3 N, float sh)
 
     // cool rim, the room feels like it has a night outside
     float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-    c += material_diffuse.rgb * vec3(0.30, 0.40, 0.65) * rim * 0.25;
+    c += kd * vec3(0.30, 0.40, 0.65) * rim * 0.25;
     return c;
 }
 
@@ -108,12 +116,29 @@ vec4 finish(vec3 c, vec3 P)
     return vec4(c, 1.0);
 }
 
+// colour of the image at this fragment, white without one
+vec3 albedo_color()
+{
+    if (has_texture == 0) return vec3(1.0);
+
+    vec2 uv = v_uv;
+    if (uv_tile > 0.0) {
+        // box mapping: drop the axis the surface faces along
+        vec3 a = abs(v_wnormal);
+        vec3 w = v_world / uv_tile;
+        uv = (a.x >= a.y && a.x >= a.z) ? w.zy : (a.y >= a.z ? w.xz : w.xy);
+    }
+    return texture(diffuse_map, uv).rgb;
+}
+
 void main()
 {
-    if      (shading_mode == 0) frag_color = vec4(v_flat, 1.0);
-    else if (shading_mode == 1) frag_color = finish(v_gouraud.rgb, v_pos);
+    if (shading_mode == 0) { frag_color = vec4(v_flat, 1.0); return; }
+
+    vec3 albedo = albedo_color();
+    if (shading_mode == 1) frag_color = finish(v_gouraud.rgb * albedo, v_pos); // lit per vertex, the image on top
     else {
         float sh = shadows_on != 0 ? shadow_factor(v_world) : 1.0;
-        frag_color = finish(shade(v_pos, normalize(v_normal), sh), v_pos);
+        frag_color = finish(shade(v_pos, normalize(v_normal), sh, albedo), v_pos);
     }
 }

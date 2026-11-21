@@ -38,6 +38,10 @@ vec3_t<gl::f32> room::shelf_t::cell_floor(int col, int row) const
 
 void room::add_materials(scene_t& scene)
 {
+    // placeholders, any image works: the colour of the material is multiplied with it, so keep them light
+    const bool floor_image = scene.add_texture("floor", "./assets/texture/floor_planks.png");
+    const bool wall_image  = scene.add_texture("wall",  "./assets/texture/wall_stone.png");
+
     scene.add_material("steel", material_t{
         .ambient   = color_t(0.20f, 0.22f, 0.25f, 1.0f),
         .diffuse   = color_t(0.45f, 0.50f, 0.56f, 1.0f),
@@ -51,6 +55,8 @@ void room::add_materials(scene_t& scene)
         .diffuse   = color_t(0.34f, 0.30f, 0.29f, 1.0f),
         .specular  = color_t(0.02f, 0.02f, 0.02f, 1.0f),
         .shininess = 4.0f,
+        .texture   = wall_image ? "wall" : "",
+        .tile      = 1.5f, // metres per repeat
     });
     scene.add_material("beam", material_t{ // old ceiling beams
         .ambient   = color_t(0.14f, 0.09f, 0.05f, 1.0f),
@@ -69,6 +75,8 @@ void room::add_materials(scene_t& scene)
         .diffuse   = color_t(0.30f, 0.20f, 0.12f, 1.0f),
         .specular  = color_t(0.10f, 0.10f, 0.10f, 1.0f),
         .shininess = 18.0f,
+        .texture   = floor_image ? "floor" : "",
+        .tile      = 2.0f,
     });
     scene.add_material("wood", material_t{
         .ambient   = color_t(0.22f, 0.14f, 0.07f, 1.0f),

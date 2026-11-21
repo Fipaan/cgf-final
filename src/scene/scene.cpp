@@ -85,6 +85,16 @@ bool scene_t::add_material(const std::string& name, const material_t& material)
     return materials.emplace(name, material).second;
 }
 
+bool scene_t::add_texture(const std::string& name, const char *path)
+{
+    if (textures.contains(name)) return true;
+    if (!textures[name].load(path)) {
+        textures.erase(name);
+        return false;
+    }
+    return true;
+}
+
 bool scene_t::add_model(const std::string& key, const obj_model_t& model)
 {
     if (models.contains(key) || model.parts.empty()) return false;
@@ -101,11 +111,15 @@ bool scene_t::add_model(const std::string& key, const obj_model_t& model)
         for (vec3_t<gl::f32>& v : mesh.vertices) v = v - t.center;
         if (!add_mesh(part_key, mesh)) return false;
 
+        // the file of `map_Kd`, a missing one is logged and the part just has its colour
+        const bool textured = !m.diffuse_map.empty() && add_texture(m.diffuse_map, m.diffuse_map.c_str());
+
         add_material(part_key, material_t{
             .ambient   = color_t(m.diffuse.r + m.emission.r, m.diffuse.g + m.emission.g, m.diffuse.b + m.emission.b, 1.0f),
             .diffuse   = m.diffuse,
             .specular  = m.specular,
             .shininess = std::clamp(m.shininess, 1.0f, 128.0f),
+            .texture   = textured ? m.diffuse_map : std::string(),
         });
         t.parts.push_back({part_key, part_key});
     }
@@ -506,6 +520,7 @@ bool scene_t::draw(gl::f32 aspect)
     shader.uniform("light0_world", lamp_world.x, lamp_world.y, lamp_world.z);
     shader.uniform("shadow_far", shadow_far);
     shader.uniform("shadow_map", (GLint)0);
+    shader.uniform("diffuse_map", (GLint)1); // unit 0 is the cube map, a 2D sampler can't share it
     if (shadows_now) {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, shadow_cube);
@@ -558,7 +573,14 @@ bool scene_t::_draw_objects()
         vec4("material_specular", m.specular);
         shader.uniform("material_shininess", m.shininess);
 
+        const auto tex_it = m.texture.empty() ? textures.end() : textures.find(m.texture);
+        const bool textured = tex_it != textures.end();
+        shader.uniform("has_texture", (GLint)(textured ? 1 : 0));
+        shader.uniform("uv_tile", m.tile);
+        if (textured) tex_it->second.bind(1);
+
         if (!mesh_it->second.gpu.draw()) return false;
     }
+    glActiveTexture(GL_TEXTURE0);
     return true;
 }

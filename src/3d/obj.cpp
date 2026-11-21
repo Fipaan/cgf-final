@@ -6,32 +6,27 @@
 
 #include <core/log.hpp>
 #include <core/fast_obj/obj.hpp>
-#include <core/stb/image.hpp>
 
 using namespace math;
 
-// NOTE: textures are not drawn yet, so a material that takes its colour from one gets the average colour
-//       of the image, otherwise wood would come out white
-static void tint_with_texture(obj_material_t& material)
-{
-    int w = 0, h = 0, channels = 0;
-    unsigned char *pixels = stbi_load(material.diffuse_map.c_str(), &w, &h, &channels, 3);
-    if (pixels == nullptr) {
-        errorfn("{}: {}", material.diffuse_map, stbi_failure_reason());
-        return;
-    }
-    double sum[3] = {0.0, 0.0, 0.0};
-    const size_t count = (size_t)w * h;
-    for (size_t i = 0; i < count; ++i) {
-        for (int k = 0; k < 3; ++k) sum[k] += pixels[3 * i + k];
-    }
-    stbi_image_free(pixels);
+namespace {
 
-    material.diffuse = color_t(material.diffuse.r * (gl::f32)(sum[0] / count / 255.0),
-                               material.diffuse.g * (gl::f32)(sum[1] / count / 255.0),
-                               material.diffuse.b * (gl::f32)(sum[2] / count / 255.0),
-                               material.diffuse.a);
-}
+// the same position with another normal or another uv is another vertex
+struct corner_key_t {
+    uint32_t p, n, t;
+    bool operator==(const corner_key_t&) const = default;
+};
+
+struct corner_hash_t {
+    size_t operator()(const corner_key_t& k) const
+    {
+        uint64_t h = ((uint64_t)k.p << 32) | k.n;
+        h ^= (uint64_t)k.t * 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2);
+        return (size_t)h;
+    }
+};
+
+} // namespace
 
 bool obj_model_t::load(const char *path, bool z_up)
 {
@@ -43,8 +38,8 @@ bool obj_model_t::load(const char *path, bool z_up)
 
     parts.clear();
     std::vector<int> part_of(obj->material_count, -1);
-    // (position, normal) -> vertex of the part, the same position with another normal is another vertex
-    std::vector<std::unordered_map<uint64_t, uint32_t>> vertex_of;
+    // (position, normal, uv) -> vertex of the part
+    std::vector<std::unordered_map<corner_key_t, uint32_t, corner_hash_t>> vertex_of;
     std::vector<bool> missing_normals;
 
     size_t corner = 0;
@@ -66,7 +61,6 @@ bool obj_model_t::load(const char *path, bool z_up)
             part.material.shininess = m.Ns;
             if (m.map_Kd != 0 && m.map_Kd < obj->texture_count) {
                 part.material.diffuse_map = obj->textures[m.map_Kd].path;
-                tint_with_texture(part.material);
             }
             part_of[material] = (int)parts.size();
             parts.push_back(std::move(part));
@@ -79,7 +73,7 @@ bool obj_model_t::load(const char *path, bool z_up)
         std::vector<uint32_t> face(count);
         for (unsigned int k = 0; k < count; ++k) {
             const fastObjIndex& index = obj->indices[first + k];
-            const uint64_t key = ((uint64_t)index.p << 32) | index.n;
+            const corner_key_t key{index.p, index.n, index.t};
 
             auto it = vertex_of[pi].find(key);
             if (it == vertex_of[pi].end()) {
@@ -92,6 +86,11 @@ bool obj_model_t::load(const char *path, bool z_up)
                 } else {
                     missing_normals[pi] = true;
                 }
+                vec2_t<gl::f32> uv(0.0f, 0.0f);
+                if (index.t != 0) {
+                    const float *t = &obj->texcoords[2 * index.t];
+                    uv = vec2_t<gl::f32>(t[0], t[1]);
+                }
                 if (z_up) {
                     position = vec3_t<gl::f32>(position.x, position.z, -position.y);
                     normal   = vec3_t<gl::f32>(normal.x, normal.z, -normal.y);
@@ -99,6 +98,7 @@ bool obj_model_t::load(const char *path, bool z_up)
                 it = vertex_of[pi].emplace(key, (uint32_t)mesh.vertices.size()).first;
                 mesh.vertices.push_back(position);
                 mesh.vertex_normals.push_back(vec3::norm(normal));
+                mesh.uvs.push_back(uv);
             }
             face[k] = it->second;
         }

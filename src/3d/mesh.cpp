@@ -137,6 +137,7 @@ mesh_t mesh_t::cube()
         m.vertices.push_back(f.n + f.u - f.v);
         m.vertices.push_back(f.n + f.u + f.v);
         m.vertices.push_back(f.n - f.u + f.v);
+        m.uvs.insert(m.uvs.end(), {{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}}); // the whole image on every face
         m.indices.insert(m.indices.end(), {b, b + 1, b + 2, b, b + 2, b + 3});
     }
     m.compute_normals();
@@ -147,17 +148,21 @@ mesh_t mesh_t::sphere(int stacks, int slices)
 {
     mesh_t m;
     m.vertices.emplace_back(0.0f, 1.0f, 0.0f); // north pole, index 0
+    m.uvs.emplace_back(0.5f, 1.0f);
     for (int i = 1; i < stacks; ++i) {
         gl::f32 phi = gl::PI * (gl::f32)i / (gl::f32)stacks;
-        for (int j = 0; j < slices; ++j) {
+        // `slices + 1` vertices: the last one is the first one again, for the seam of the texture
+        for (int j = 0; j <= slices; ++j) {
             gl::f32 th = 2.0f * gl::PI * (gl::f32)j / (gl::f32)slices;
             m.vertices.emplace_back(std::sin(phi) * std::cos(th), std::cos(phi), std::sin(phi) * std::sin(th));
+            m.uvs.emplace_back((gl::f32)j / (gl::f32)slices, 1.0f - (gl::f32)i / (gl::f32)stacks);
         }
     }
     m.vertices.emplace_back(0.0f, -1.0f, 0.0f); // south pole
+    m.uvs.emplace_back(0.5f, 0.0f);
     const uint32_t south = (uint32_t)m.vertices.size() - 1;
 
-    auto ring = [&](int i, int j) -> uint32_t { return (uint32_t)(1 + (i - 1) * slices + (j % slices)); };
+    auto ring = [&](int i, int j) -> uint32_t { return (uint32_t)(1 + (i - 1) * (slices + 1) + j); };
 
     for (int j = 0; j < slices; ++j) {
         m.indices.insert(m.indices.end(), {0u, ring(1, j + 1), ring(1, j)});
@@ -188,6 +193,7 @@ mesh_t mesh_t::plane()
         { 1.0f, 0.0f,  1.0f},
         { 1.0f, 0.0f, -1.0f},
     };
+    m.uvs = {{0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f}};
     m.indices = {0, 1, 2, 0, 2, 3};
     m.compute_normals();
     return m;
@@ -201,7 +207,8 @@ void mesh_t::spread(gl::flat_t<gl::f32>& container) const
             uint32_t i = indices[3*t + k];
             const vec3_t<gl::f32>& p = vertices[i];
             const vec3_t<gl::f32>& n = vertex_normals[i];
-            const gl::f32 values[] = {p.x, p.y, p.z, n.x, n.y, n.z, col.x, col.y, col.z};
+            const vec2_t<gl::f32> uv = i < uvs.size() ? uvs[i] : vec2_t<gl::f32>(0.0f, 0.0f);
+            const gl::f32 values[] = {p.x, p.y, p.z, n.x, n.y, n.z, col.x, col.y, col.z, uv.x, uv.y};
             container.add(values, std::size(values));
         }
     }
@@ -217,12 +224,13 @@ bool gl::mesh_gpu_t::upload(const mesh_t& mesh)
     if (!vao.bind()) return false;
 
     vbo.gen_buffer();
-    if (!vbo.add_vad(gl::vad_t(0, gl::vad_cpv_t::comp_3, 9, 0))) return false; // pos
-    if (!vbo.add_vad(gl::vad_t(1, gl::vad_cpv_t::comp_3, 9, 3))) return false; // smooth normal
-    if (!vbo.add_vad(gl::vad_t(2, gl::vad_cpv_t::comp_3, 9, 6))) return false; // flat color
+    if (!vbo.add_vad(gl::vad_t(0, gl::vad_cpv_t::comp_3, 11, 0))) return false; // pos
+    if (!vbo.add_vad(gl::vad_t(1, gl::vad_cpv_t::comp_3, 11, 3))) return false; // smooth normal
+    if (!vbo.add_vad(gl::vad_t(2, gl::vad_cpv_t::comp_3, 11, 6))) return false; // flat color
+    if (!vbo.add_vad(gl::vad_t(3, gl::vad_cpv_t::comp_2, 11, 9))) return false; // uv
     if (!vbo.init_buffer(std::span<gl::f32>(buf.data(), buf.count()), gl::dsu_t::static_draw)) return false;
 
-    vertex_count = (GLsizei)(buf.count() / 9);
+    vertex_count = (GLsizei)(buf.count() / 11);
     return true;
 }
 

@@ -3,6 +3,7 @@
 layout(location = 0) in vec3 a_pos;
 layout(location = 1) in vec3 a_normal;
 layout(location = 2) in vec3 a_flat;
+layout(location = 3) in vec2 a_uv;
 
 uniform mat4 model, view, proj;
 uniform int shading_mode; // 0 = normal as color, 1 = Gouraud, 2 = Phong
@@ -23,8 +24,10 @@ uniform float point_radius[8];
 
 out vec3 v_pos;
 out vec3 v_world;
+out vec3 v_wnormal; // world space, only the direction matters (see `uv_tile`)
 out vec3 v_normal;
 out vec3 v_flat;
+out vec2 v_uv;
 out vec4 v_gouraud;
 
 // HDR result, `finish` brings it to the screen
@@ -85,7 +88,9 @@ void main()
     v_pos     = p.xyz;
     v_world   = (model * vec4(a_pos, 1.0)).xyz;
     v_normal  = normalize(mat3(transpose(inverse(mv))) * a_normal);
+    v_wnormal = mat3(model) * a_normal;
     v_flat    = a_flat;
+    v_uv      = a_uv;
     v_gouraud = vec4(shade(v_pos, v_normal, 1.0), 1.0);
 
     gl_Position = proj * p;

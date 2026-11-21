@@ -1,7 +1,7 @@
 /*
  * 3d/obj.hpp -
- *     Wavefront .obj models (with their .mtl): one `mesh_t` per material, normals taken from the file,
- *     so hard edges stay hard. Parsing is done by core/fast_obj.
+ *     Wavefront .obj models (with their .mtl): one `mesh_t` per material, normals and texture coordinates
+ *     taken from the file, so hard edges stay hard. Parsing is done by core/fast_obj.
  */
 #pragma once
 
@@ -15,8 +15,7 @@
 
 namespace math {
 
-// Ka, Kd, Ks, Ke and Ns of the .mtl. If there is a `map_Kd` `diffuse` is multiplied by the average colour of
-// the image (textures are not drawn yet).
+// Ka, Kd, Ks, Ke and Ns of the .mtl. `diffuse` stays Kd, the image of `map_Kd` is multiplied with it when drawing.
 struct obj_material_t {
     std::string name;
     color_t ambient  = color_t(0.2f, 0.2f, 0.2f, 1.0f);
@@ -28,7 +27,7 @@ struct obj_material_t {
 };
 
 struct obj_part_t {
-    mesh_t         mesh; // `vertex_normals` and `face_normals` are set
+    mesh_t         mesh; // `vertex_normals` and `face_normals` are set, `uvs` too if the file has `vt`
     obj_material_t material;
 };
 
