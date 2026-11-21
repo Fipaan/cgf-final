@@ -6,12 +6,6 @@
  */
 #pragma once
 
-#ifdef __cplusplus
 extern "C" {
-#endif
-
-#include "private/fast_obj.h"
-
-#ifdef __cplusplus
+    #include "fast_obj/fast_obj.h"
 }
-#endif

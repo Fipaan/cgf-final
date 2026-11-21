@@ -17,8 +17,10 @@
 #include <scene/drag.hpp>
 #include <scene/room.hpp>
 #include <scene/alchemy.hpp>
+#include <audio/audio.hpp>
 
 using namespace math;
+using namespace audio;
 
 constexpr gl::f32 INTERACT_REACH = 3.0f; // how far E reaches
 
@@ -29,10 +31,11 @@ struct app_t {
     gl::gui_t     gui;
     alchemy::ui_t alchemy_ui;
 
-    scene_t  scene;
-    player_t player;
-    drag_t   drag;
-    brew_t   brew;
+    scene_t     scene;
+    player_t    player;
+    drag_t      drag;
+    brew_t      brew;
+    ma_device_t playback_device;
 
     // what E would do for the object under the crosshair, empty = nothing
     std::string interact_prompt;
@@ -51,12 +54,20 @@ struct app_t {
         brew(scene, player, alchemy_ui)
     {}
 
+    // TODO: sounds shouldn't be here, probably map names to sounds?
+    sound_t explosion = sound_t(0.01f);
+
     bool init()
     {
         if (!scene.init("shaders/mesh.vert", "shaders/mesh.frag")) return false;
         if (!scene.init_shadows("shaders/shadow.vert", "shaders/shadow.frag")) return false;
         if (!scene.particles.init("shaders/particle.vert", "shaders/particle.frag")) return false;
         if (!scene.add_mesh("cube", mesh_t::cube())) return false;
+
+        if (!playback_device.init(2, 48000)) return false;
+        if (!playback_device.start()) return false;
+
+        if (!playback_device.load(explosion, "assets/sound/explosion.mp3")) return false;
 
         // the models of the lab, then the lab itself
         for (const std::string& name : room::model_names) {
@@ -116,6 +127,9 @@ struct app_t {
     void input()
     {
         gl::input_t& in = ctx.input;
+
+        // NOTE: test input
+        if (in.key_hit(gl::kb_key_t::r)) explosion.reset();
 
         // before the capture click below, so that click doesn't also grab
         if (in.mouse_captured) drag.input(in, (int)player.body);

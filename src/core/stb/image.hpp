@@ -5,12 +5,6 @@
  */
 #pragma once
 
-#ifdef __cplusplus
 extern "C" {
-#endif
-
-#include "private/stb_image.h"
-
-#ifdef __cplusplus
+    #include "stb/stb_image.h"
 }
-#endif

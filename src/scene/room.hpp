@@ -20,7 +20,7 @@ constexpr gl::f32 TABLE_TOP = 0.81f;
 constexpr gl::f32 SHELF_TOP = 0.43f;
 
 // how much bigger than the model the cauldron is
-constexpr gl::f32 CAULDRON_SCALE = 2.0f;
+constexpr gl::f32 CAULDRON_SCALE = 1.5f;
 
 namespace room {
     // Cube shelf unit: a grid of open cells made of boards.
