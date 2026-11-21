@@ -6,6 +6,8 @@
 #include <fstream>
 #include <utility>
 
+using namespace math;
+
 namespace {
     constexpr color_t ink(0.025f, 0.060f, 0.059f, 0.98f);
     constexpr color_t panel(0.040f, 0.085f, 0.080f, 0.96f);
@@ -138,8 +140,12 @@ void alchemy::ui_t::update()
     } else if (input.key_hit(gl::kb_key_t::tab)) {
         if (screen == screen_t::game) {
             codex_return = screen_t::game;
-            set_screen(screen_t::codex);
-        } else if (screen == screen_t::codex) set_screen(codex_return);
+            screen       = screen_t::codex;
+            input.set_mouse_capture(false);
+        } else if (screen == screen_t::codex) {
+            screen = codex_return;
+            input.set_mouse_capture(true);
+        }
     }
     if (screen == screen_t::codex) {
         if (input.key_hit(gl::kb_key_t::left)) codex_page = std::max(codex_page - 1, 0);

@@ -31,6 +31,8 @@ ctx.end_overlay();
 ```
 */
 namespace gl {
+    using namespace math;
+
     struct box_t {
         f32 x, y, w, h;
     };
@@ -44,12 +46,12 @@ namespace gl {
         shader_t panel_shader;
 
         // all sizes are designed for `ref_size` and multiplied by `scale`
-        vec2_t<f32> ref_size = vec2_t<f32>(1200.0f, 820.0f);
-        f32 scale_max = 1.5f;
+        vec2_t<f32> ref_size = vec2_t<f32>(1200.0f, 900.0f);
+        f32 scale_min = 0.55f, scale_max = 1.35f;
 
         // refreshed by `update`
         f32 width, height, scale;
-        vec2_t<f32> mouse;
+        math::vec2_t<f32> mouse;
         bool clicked;
         bool released = false, pointer_moved = false;
         bool reduced_motion = false;

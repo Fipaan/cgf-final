@@ -4,6 +4,8 @@
 #include <cmath>
 #include <sstream>
 
+using namespace math;
+
 gl::gui_t::gui_t(ctx_t& ctx, draw2d_t& draw2d, text_t& text) :
     ctx(ctx), draw2d(draw2d), text(text)
 {

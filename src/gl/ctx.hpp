@@ -7,7 +7,8 @@
 #pragma once
 
 #include <core/gl/const.hpp>
-#include <2d/math.hpp>
+#include <2d/vec.hpp>
+#include <2d/color.hpp>
 #include <gl/input.hpp>
 
 /* Usage:
@@ -52,8 +53,8 @@ namespace gl {
         GLFWwindow *window;
         input_t     input;
         // NOTE: wscreen_size is size in window units
-        vec2_t<int> screen_size_prev, screen_size, wscreen_size;
-        vec2_t<f32> DPI;
+        math::vec2_t<int> screen_size_prev, screen_size, wscreen_size;
+        math::vec2_t<f32> DPI;
 
         GLboolean overlay_depth = GL_FALSE, overlay_cull = GL_FALSE, overlay_blend = GL_FALSE;
         f32    target_fps, actual_fps;
@@ -77,14 +78,14 @@ namespace gl {
         void end_loop();
 
         void to_ndc(f32& x, f32& y);
-        void to_ndc(vec2_t<f32>& v);
+        void to_ndc(math::vec2_t<f32>& v);
         void from_ndc(f32& x, f32& y);
-        void from_ndc(vec2_t<f32>& v);
+        void from_ndc(math::vec2_t<f32>& v);
 
         void resize(int width, int height);
         void force_close(glfw_bool_t close = glfw_bool::TRUE);
         // cursor in framebuffer pixels, origin is top-left (like GLFW)
-        vec2_t<f32> cursor_position() const;
+        math::vec2_t<f32> cursor_position() const;
         void set_vsync(bool enabled);
 
         // 2D/text drawing state: no depth test, no culling, alpha blending.
@@ -92,7 +93,7 @@ namespace gl {
         void begin_overlay();
         void end_overlay();
 
-        void clear_color(color_t color);
+        void clear_color(math::color_t color);
         void clear_color(uint32_t rgba);
 
         // used internally, not really meant to use outside

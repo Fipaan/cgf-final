@@ -1,19 +1,25 @@
 /*
- * 2d/math.hpp -
- *     Math related to 2D objects, such as vectors.
+ * 2d/vec2.hpp -
+ *     2D vectors related logic.
  */
 #pragma once
 
 #include <vector>
 #include <cmath>
+#include <type_traits>
 #include <span>
 #include <algorithm>
 
-#include <core/gl/first.hpp>
+namespace math {
 
 template<typename T>
 struct vec2_t {
-    T x, y;
+    union {
+        struct {
+            T x, y;
+        };
+        T v[2];
+    };
 
     constexpr vec2_t(T x, T y);
     constexpr vec2_t(T v);
@@ -60,7 +66,7 @@ namespace vec2 {
     constexpr auto dst(const vec2_t<T>& a, const vec2_t<K>& b);
 
     template<typename T, typename K>
-    constexpr auto compute_angle(const vec2_t<T>& v1, const vec2_t<K>& v2);
+    constexpr auto angle(const vec2_t<T>& v1, const vec2_t<K>& v2);
 }
 
 template<typename T, typename K> requires std::is_arithmetic_v<K>
@@ -68,22 +74,6 @@ constexpr auto operator*(K scale, const vec2_t<T>& vec);
 
 template<typename T, typename K> requires std::is_arithmetic_v<K>
 constexpr auto operator/(K scale, const vec2_t<T>& vec);
-
-struct hsva_t {
-    gl::f32 h, s, v, a;
-};
-
-struct color_t {
-    gl::f32 r, g, b, a;
-
-    constexpr color_t(gl::f32 r, gl::f32 g, gl::f32 b,  gl::f32 a);
-    constexpr color_t(uint32_t rgba);
-
-    constexpr static color_t from_hex(uint32_t rgba);
-    constexpr static color_t from_hsva(hsva_t hsva);
-
-    constexpr hsva_t to_hsva() const;
-};
 
 ///// IMPLEMENTATION ///////////////////////////////////////////////////////////
 
@@ -232,8 +222,7 @@ constexpr vec2_t<T>& vec2_t<T>::operator/=(const vec2_t<K>& rhs)
 template<typename T>
 constexpr T vec2_t<T>::len() const
 {
-    // TODO: rewrite in vec2::dst, it doesn't exist yet
-    return std::sqrt(x*x + y*y);
+    return vec2::dst(*this, zero());
 }
 
 template<typename T>
@@ -270,7 +259,7 @@ constexpr vec2_t<T>& vec2_t<T>::rot(T angle, const vec2_t<K> origin)
 template<typename T>
 constexpr vec2_t<T>& vec2_t<T>::rot(T angle)
 {
-    return rot(angle, vec2_t<T>::zero());
+    return rot(angle, zero());
 }
 
 template<typename T>
@@ -306,100 +295,11 @@ constexpr auto vec2::dst(const vec2_t<T>& a, const vec2_t<K>& b)
 }
 
 template<typename T, typename K>
-constexpr auto vec2::compute_angle(const vec2_t<T>& v1, const vec2_t<K>& v2)
+constexpr auto vec2::angle(const vec2_t<T>& v1, const vec2_t<K>& v2)
 {
     using R = std::common_type_t<T, K>;
     R result = std::acos((v1.x * v2.x + v1.y * v2.y) / (v1.len() * v2.len()));
     return result;
 }
 
-constexpr color_t::color_t(gl::f32 r, gl::f32 g, gl::f32 b,  gl::f32 a)
-{
-    this->r = r;
-    this->g = g;
-    this->b = b;
-    this->a = a;
-}
-
-constexpr color_t::color_t(uint32_t rgba)
-{
-    r = ((gl::f32)((rgba >> 24) & 0xFF)) / 0xFF;
-    g = ((gl::f32)((rgba >> 16) & 0xFF)) / 0xFF;
-    b = ((gl::f32)((rgba >> 8 ) & 0xFF)) / 0xFF;
-    a = ((gl::f32)((rgba >> 0 ) & 0xFF)) / 0xFF;
-}
-
-constexpr color_t color_t::from_hex(uint32_t rgba)
-{
-    return color_t(rgba);
-}
-
-constexpr hsva_t color_t::to_hsva() const
-{
-    gl::f32 max = std::max({r, g, b});
-    gl::f32 min = std::min({r, g, b});
-    gl::f32 delta = max - min;
-
-    hsva_t hsva;
-    auto& [h, s, v, a] = hsva;
-
-    v = max;
-    s = (max == 0.0f) ? 0.0f : delta / max;
-
-    if (delta == 0.0f) h = 0.0f;
-    else if (max == r) {
-        h = 60.0f * std::fmod( (g - b) / delta, 6.0f );
-    } else if (max == g) {
-        h = 60.0f * ( (b - r) / delta + 2.0f );
-    } else {
-        h = 60.0f * ( (r - g) / delta + 4.0f );
-    }
-    if (h < 0.0f) h += 360.0f;
-
-    a = this->a;
-
-    return hsva;
-}
-
-constexpr color_t color_t::from_hsva(hsva_t hsva)
-{
-    auto& [h, s, v, a] = hsva;
-    h = std::fmod(h, 360.0f);
-    if (h < 0.0f) h += 360.0f;
-
-    s = std::clamp(s, 0.0f, 1.0f);
-    v = std::clamp(v, 0.0f, 1.0f);
-
-    gl::f32 c = v * s;
-    gl::f32 x = c * (1.0f - std::fabs(std::fmod(h/60.0f, 2.0f) - 1.0f));
-    gl::f32 m = v - c;
-
-    gl::f32 r, g, b;
-    if (h < 60.0f) {
-        r = c;
-        g = x;
-        b = 0.0f;
-    } else if (h < 120.0f) {
-        r = x;
-        g = c;
-        b = 0.0f;
-    } else if (h < 180.0f) {
-        r = 0.0f;
-        g = c;
-        b = x;
-    } else if (h < 240.0f) {
-        r = 0.0f;
-        g = x;
-        b = c;
-    } else if (h < 300.0f) {
-        r = x;
-        g = 0.0f;
-        b = c;
-    } else {
-        r = c;
-        g = 0.0f;
-        b = x;
-    }
-
-    return color_t(r + m, g + m, b + m, a);
-}
+} // namespace math

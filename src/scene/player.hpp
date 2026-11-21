@@ -9,12 +9,12 @@
 #include <scene/scene.hpp>
 
 // player collider (AABB), eye sits `EYE_HEIGHT` above its centre
-constexpr vec3_t<gl::f32> PLAYER_HALF(0.3f, 0.9f, 0.3f);
+constexpr math::vec3_t<gl::f32> PLAYER_HALF(0.3f, 0.9f, 0.3f);
 constexpr gl::f32 EYE_HEIGHT  = 0.7f;
 constexpr gl::f32 WALK_SPEED  = 5.0f;
 constexpr gl::f32 FLY_SPEED   = 10.0f;
 constexpr gl::f32 SPRINT_MULT = 2.0f;
-constexpr gl::f32 JUMP_SPEED  = 5.5f;
+constexpr gl::f32 JUMP_SPEED  = 4.2f;
 constexpr gl::f32 PLAYER_MASS = 70.0f; // pushes objects around
 
 enum class cam_mode_t { fly, fps };
@@ -34,12 +34,19 @@ struct player_t {
     scene_t& scene;
     size_t   body = 0; // index into `scene_t::world.bodies`
     cam_mode_t mode = cam_mode_t::fps;
+    gl::f32 scale      = 1.0f; // body and eye height, see `set_scale`
+    gl::f32 speed_mult = 1.0f; // walking / flying speed
+    gl::f32 jump_mult  = 1.0f;
 
     player_t(scene_t& scene);
 
     // `feet` is the point on the floor the player stands at
-    void spawn(vec3_t<gl::f32> feet);
+    void spawn(math::vec3_t<gl::f32> feet);
     void set_mode(cam_mode_t mode);
+    // resizes the body around the feet (and the eye height with it), 1 = normal
+    void set_scale(gl::f32 scale);
+    // `feet` is the point on the floor, velocity is cleared
+    void teleport(math::vec3_t<gl::f32> feet);
 
     // mouse look (if the mouse is captured and `look`), mode switch and movement
     void input(gl::input_t& input, gl::f32 dt, bool look = true);

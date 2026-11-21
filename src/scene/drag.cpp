@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+using namespace math;
+
 drag_t::drag_t(scene_t& scene) :
     scene(scene)
 {}
@@ -33,6 +35,7 @@ void drag_t::input(gl::input_t& input, int ignore)
         r->held  = true;
         distance = std::max(pick.dist, DRAG_MIN_DIST);
         offset   = r->pos - pick.point;
+        if (on_grab) on_grab(held);
     }
     if (holding() && !input.mouse_held(gl::mouse_left)) release();
     rotating = holding() && input.mouse_held(gl::mouse_right);
@@ -44,7 +47,7 @@ void drag_t::update(gl::input_t& input, gl::f32 dt)
 
     object_t *o = scene.get(held);
     phys::rigid_t *r = o ? scene.rigid_of(*o) : nullptr;
-    if (r == nullptr) {
+    if (r == nullptr || !r->enabled) { // gone, or eaten by the cauldron
         release();
         return;
     }

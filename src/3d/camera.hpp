@@ -5,18 +5,21 @@
  */
 #pragma once
 
-#include <algorithm>
-#include <cmath>
-#include <numbers>
-
+#include <core/gl/const.hpp>
+#include <3d/vec.hpp>
 #include <3d/math.hpp>
 
+namespace math {
+
 struct camera_t {
+    static constexpr gl::f32 UP_ANGLE_LIMIT_IN_DEGREES = 89.99f;
+    static constexpr gl::f32 UP_ANGLE_LIMIT = UP_ANGLE_LIMIT_IN_DEGREES * gl::PI / 180.0f;
+
     vec3_t<gl::f32> pos;
-    gl::f32 yaw   = -std::numbers::pi_v<gl::f32> / 2.0f;
+    gl::f32 yaw   = -gl::PI / 2.0f;
     gl::f32 pitch = 0.0f;
 
-    gl::f32 fovy   = 45.0f * std::numbers::pi_v<gl::f32> / 180.0f;
+    gl::f32 fovy   = 45.0f * gl::PI / 180.0f;
     gl::f32 z_near = 0.1f;
     gl::f32 z_far  = 200.0f;
 
@@ -25,48 +28,15 @@ struct camera_t {
 
     void look(gl::f32 dx, gl::f32 dy);
 
-    vec3_t<gl::f32> forward() const;      // full view direction
-    vec3_t<gl::f32> flat_forward() const; // view direction projected on XZ, unit length
+    // full view direction
+    vec3_t<gl::f32> forward() const;
+    // view direction projected on XZ, unit length (ignoring pitch)
+    vec3_t<gl::f32> flat_forward() const;
     vec3_t<gl::f32> right() const;
 
+    // matrix to convert world coordinates into camera coordinates
     mat4_t view() const;
     mat4_t proj(gl::f32 aspect) const;
 };
 
-///// IMPLEMENTATION ///////////////////////////////////////////////////////////
-
-inline void camera_t::look(gl::f32 dx, gl::f32 dy)
-{
-    constexpr gl::f32 limit = 89.0f * std::numbers::pi_v<gl::f32> / 180.0f;
-    yaw   += dx * sensitivity;
-    pitch  = std::clamp(pitch - dy * sensitivity, -limit, limit);
-}
-
-inline vec3_t<gl::f32> camera_t::forward() const
-{
-    return vec3_t<gl::f32>(
-        std::cos(pitch) * std::cos(yaw),
-        std::sin(pitch),
-        std::cos(pitch) * std::sin(yaw)
-    );
-}
-
-inline vec3_t<gl::f32> camera_t::flat_forward() const
-{
-    return vec3_t<gl::f32>(std::cos(yaw), 0.0f, std::sin(yaw));
-}
-
-inline vec3_t<gl::f32> camera_t::right() const
-{
-    return vec3::norm(vec3::cross(forward(), vec3_t<gl::f32>(0.0f, 1.0f, 0.0f)));
-}
-
-inline mat4_t camera_t::view() const
-{
-    return mat4_t::look_at(pos, pos + forward(), vec3_t<gl::f32>(0.0f, 1.0f, 0.0f));
-}
-
-inline mat4_t camera_t::proj(gl::f32 aspect) const
-{
-    return mat4_t::perspective(fovy, aspect, z_near, z_far);
-}
+} // namespace math

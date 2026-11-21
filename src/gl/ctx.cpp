@@ -5,6 +5,8 @@
 
 #include <core/log.hpp>
 
+using namespace math;
+
 gl::glfw_ctx_t::glfw_ctx_t()
 {
     initialized = false;
@@ -29,6 +31,7 @@ bool gl::glfw_ctx_t::init()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
+    glfwWindowHint(GLFW_SAMPLES, 4); // MSAA, smooths the edges of everything in the 3D scene
 
     initialized = true;
 
@@ -233,5 +236,5 @@ void gl::ctx_t::clear_color(color_t color)
 
 void gl::ctx_t::clear_color(uint32_t rgba)
 {
-    clear_color(color_t::from_hex(rgba));
+    clear_color(color_t(rgba));
 }

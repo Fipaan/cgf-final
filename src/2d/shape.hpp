@@ -5,7 +5,11 @@
 #pragma once
 
 #include <core/gl/shader.hpp>
-#include <2d/math.hpp>
+#include <2d/vec.hpp>
+#include <2d/color.hpp>
+#include <gl/flat.hpp>
+
+namespace math {
 
 struct rect_t {
     vec2_t<gl::f32> pos, size;
@@ -15,8 +19,12 @@ struct rect_t {
     rect_t(gl::f32 x, gl::f32 y, gl::f32 w, gl::f32 h);
     rect_t();
 
-    void spread_pos(std::vector<gl::f32>& storage);
-    void spread_color(std::vector<gl::f32>& storage, gl::vad_cpv_t cpv = gl::vad_cpv_t::comp_3);
+    void spread_pos(gl::flat_t<gl::f32>& container);
+    void spread_color(gl::flat_t<gl::f32>& container, gl::vad_cpv_t cpv);
+    // raw version of upper function
+    //     rgb - specifies order of components (rgb/bgr)
+    //     a   - include alpha component or not
+    void spread_color(gl::flat_t<gl::f32>& container, bool rgb = true, bool alpha = false);
 };
 
 struct triangle_t {
@@ -46,6 +54,12 @@ struct triangle_t {
     void move(vec2_t<gl::f32> vec);
     void rot(gl::f32 angle);
 
-    void spread_pos(std::vector<gl::f32>& storage);
-    void spread_color(std::vector<gl::f32>& storage, gl::vad_cpv_t cpv = gl::vad_cpv_t::comp_3);
+    void spread_pos(gl::flat_t<gl::f32>& container);
+    void spread_color(gl::flat_t<gl::f32>& container, gl::vad_cpv_t cpv);
+    // raw version of upper function
+    //     rgb - specifies order of components (rgb/bgr)
+    //     a   - include alpha component or not
+    void spread_color(gl::flat_t<gl::f32>& container, bool rgb = true, bool alpha = false);
 };
+
+} // namespace math
