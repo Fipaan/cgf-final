@@ -41,7 +41,7 @@ This is a 3D potion-making game written in [GLFW](https://www.glfw.org/)/C++, an
 ```sh
 $ cmake -B build/ -DCMAKE_BUILD_TYPE=Release
 $ cmake --build build/
-$ ./build/cgf
+$ ./build/alchemy_room
 ```
 
 ## Windows
@@ -49,7 +49,7 @@ $ ./build/cgf
 ```sh
 $ cmake -B build\ -DCMAKE_BUILD_TYPE=Release
 $ cmake --build build\
-$ ./build/cgf.exe
+$ ./build/alchemy_room.exe
 ```
 
 ## Build (Debug) & Run
@@ -59,7 +59,7 @@ $ ./build/cgf.exe
 ```sh
 $ cmake -B build/ -DCMAKE_BUILD_TYPE=Debug
 $ cmake --build build/
-$ ./build/cgf
+$ ./build/alchemy_room
 ```
 
 ## Windows
@@ -67,5 +67,5 @@ $ ./build/cgf
 ```sh
 $ cmake -B build\ -DCMAKE_BUILD_TYPE=Debug
 $ cmake --build build\
-$ .\build\cgf.exe
+$ .\build\alchemy_room.exe
 ```

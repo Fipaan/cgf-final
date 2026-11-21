@@ -5,7 +5,7 @@ if(WIN32)
     set(CMAKE_CXX_COMPILER     clang++)
 endif()
 
-project(cgf
+project(alchemy_room
     VERSION 1.0
     LANGUAGES C CXX
 )
